@@ -11,6 +11,12 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       host: true,
       open: false,
+      hmr: {
+            overlay: true  // Enable hot reload
+          },
+      watch: {
+            usePolling: true, // Watch for changes
+          }
     },
     build: {
       outDir: 'build'

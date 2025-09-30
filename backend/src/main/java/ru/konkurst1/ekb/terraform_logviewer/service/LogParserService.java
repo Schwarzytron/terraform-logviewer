@@ -2,10 +2,13 @@ package ru.konkurst1.ekb.terraform_logviewer.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogEntry;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogLevel;
+import ru.konkurst1.ekb.terraform_logviewer.model.LogParseResult;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -21,7 +24,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class LogParserService {
-
+    private static final Logger logger = LoggerFactory.getLogger(LogParserService.class);
     // Паттерны для определения секций
     private final Pattern PLAN_START = Pattern.compile(".*Terraform will perform.*|.*terraform plan.*", Pattern.CASE_INSENSITIVE);
     private final Pattern APPLY_START = Pattern.compile(".*terraform apply.*|.*Applying.*", Pattern.CASE_INSENSITIVE);
@@ -49,6 +52,7 @@ public class LogParserService {
     private Instant lastTimestamp = Instant.now();
 
     public LogParseResult parseLogs(List<String> rawLines, String logFileId) {
+        logger.info("Starting to parse {} lines for file ID: {}", rawLines.size(), logFileId);
         List<LogEntry> entries = new ArrayList<>();
         List<ParsingError> errors = new ArrayList<>();
 
@@ -60,6 +64,7 @@ public class LogParserService {
             lineNumber++;
             try {
                 LogEntry entry = parseSingleLine(rawLine, lineNumber, currentSection, lastValidTimestamp, logFileId);
+                logger.debug("Parsed line {}: {}", lineNumber, entry.getMessage());
 
                 // Обновляем контекст
                 if (entry.getTimestamp() != null) {
@@ -72,41 +77,54 @@ public class LogParserService {
                 entries.add(entry);
 
             } catch (Exception e) {
+                logger.error("Error parsing line {}: {}", lineNumber, e.getMessage(), e);
+
                 // Создаем запись с ошибкой парсинга
                 LogEntry errorEntry = createErrorEntry(rawLine, lineNumber, e.getMessage(), logFileId);
                 entries.add(errorEntry);
                 errors.add(new ParsingError(lineNumber, rawLine, e.getMessage()));
             }
         }
+        logger.info("Finished parsing {} lines", rawLines.size());
 
         return new LogParseResult(entries, errors);
     }
 
     private LogEntry parseSingleLine(String rawLine, int lineNumber, String currentSection,
                                      Instant lastTimestamp, String logFileId) {
+        logger.debug("Parsing line {}: {}", lineNumber, rawLine);
         // Пытаемся извлечь JSON
         JsonNode jsonData = extractJson(rawLine);
         String cleanLine = removeJsonFromLine(rawLine);
+        logger.debug("After JSON removal: {}", cleanLine);
 
         // Парсим timestamp
         Instant timestamp = extractTimestamp(cleanLine);
+        logger.debug("Extracted timestamp: {}", timestamp);
         if (timestamp == null) {
             timestamp = lastTimestamp;
+            logger.debug("Using previous timestamp: {}", timestamp);
         }
 
         // Определяем уровень
         LogLevel level = detectLogLevel(cleanLine);
+        logger.debug("Detected level: {}", level);
 
         // Определяем секцию
-        String section = detectSection(cleanLine, Collections.singletonList(currentSection));
+        String section = detectSection(cleanLine, currentSection);
+        logger.debug("Detected section: {}", section);
 
         // Извлекаем чистое сообщение
         String message = extractCleanMessage(cleanLine);
+        logger.debug("Final message: {}", message);
 
-        return new LogEntry(
+        LogEntry entry = new LogEntry(
                 rawLine, timestamp, level, section, message,
                 jsonData != null, false, null, lineNumber
         );
+
+        logger.debug("Created entry: {}", entry);
+        return entry;
     }
     private LogEntry createErrorEntry(String rawLine, int lineNumber, String errorMessage, String logFileId) {
         return new LogEntry(
@@ -131,48 +149,65 @@ public class LogParserService {
         return JSON_PATTERN.matcher(line).replaceAll("").trim();
     }
 
-    private String detectSection(String line, List<String> context) {
+    private String detectSection(String line, String currentSection) {
+        logger.trace("detectSection - Line: '{}', Current: {}", line, currentSection);
+
         if (PLAN_START.matcher(line).matches()) {
+            logger.debug("Detected PLAN section from line: {}", line);
             return "plan";
         } else if (APPLY_START.matcher(line).matches()) {
+            logger.debug("Detected APPLY section from line: {}", line);
             return "apply";
         } else if (SECTION_END.matcher(line).matches()) {
+            logger.debug("Detected SECTION END, returning to 'other'");
             return "other";
         }
+
+        logger.trace("Keeping current section: {}", currentSection);
         return currentSection;
     }
 
     private Instant extractTimestamp(String line) {
+        logger.trace("extractTimestamp - Line: {}", line);
+
         for (Pattern pattern : TIMESTAMP_PATTERNS) {
             Matcher matcher = pattern.matcher(line);
             if (matcher.find()) {
                 String timestampStr = matcher.group(1);
+                logger.debug("Found timestamp pattern: {} -> {}", pattern.pattern(), timestampStr);
                 try {
-                    // Пробуем разные парсеры для timestamp
-                    return parseTimestamp(timestampStr);
+                    Instant timestamp = parseTimestamp(timestampStr);
+                    logger.debug("Successfully parsed timestamp: {}", timestamp);
+                    return timestamp;
                 } catch (Exception e) {
-                    // Логируем и продолжаем
+                    logger.warn("Failed to parse timestamp '{}': {}", timestampStr, e.getMessage());
                 }
             }
         }
+
+        logger.trace("No timestamp found in line");
         return null;
     }
 
 
 
     private LogLevel detectLogLevel(String line) {
+        logger.trace("detectLogLevel - Line: {}", line);
         String lowerLine = line.toLowerCase();
 
         for (Map.Entry<LogLevel, List<String>> entry : LEVEL_KEYWORDS.entrySet()) {
             for (String keyword : entry.getValue()) {
                 if (lowerLine.contains(keyword)) {
+                    logger.debug("Detected level {} from keyword '{}'", entry.getKey(), keyword);
                     return entry.getKey();
                 }
             }
         }
 
+        logger.debug("No specific level detected, defaulting to INFO");
         return LogLevel.INFO; // По умолчанию
     }
+
     private String extractCleanMessage(String line) {
         String withoutTimestamp = line;
         // Убираем timestamp если нашли

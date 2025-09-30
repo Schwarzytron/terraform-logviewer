@@ -13,6 +13,10 @@ export interface LogEntry {
   section: string;
   message: string;
   hasJson: boolean;
+//   parsingError: boolean;
+//   parsingErrorMessage?: string;
+//   lineNumber: number;
+//   logFileId?: string;
 }
 
 export interface ParsingStats {
@@ -21,6 +25,14 @@ export interface ParsingStats {
   applySectionEntries: number;
   errorEntries: number;
   warnEntries: number;
+}
+
+export interface LogUploadResponse {
+  logFileId: string;
+  entriesCount: number;
+  errorsCount: number;
+  stats: ParsingStats;
+  entries?: LogEntry[];
 }
 
 export interface LogResponse {

@@ -19,8 +19,10 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, Long> {
     
     Page<LogEntry> findByLogFileIdAndMessageContainingIgnoreCase(String logFileId, String query, Pageable pageable);
     
-    @Query("SELECT new ru.konkursteleb.terraformlogviewer.dto.LogFileInfo(" +
-           "l.logFileId, MAX(l.rawMessage), MAX(l.timestamp), COUNT(l), SUM(CASE WHEN l.parsingError = true THEN 1 ELSE 0 END)) " +
-           "FROM LogEntry l GROUP BY l.logFileId")
+//    @Query("SELECT new ru.konkurst1.ekb.terraform_logviewer.dto.LogFileInfo(" +
+//           "l.logFileId, MAX(l.rawMessage), MAX(l.timestamp), COUNT(l), SUM(CASE WHEN l.parsingError = true THEN 1 ELSE 0 END)) " +
+//           "FROM LogEntry l GROUP BY l.logFileId")
+// FIXED: Simplified query without MAX on rawMessage
+    @Query("SELECT new ru.konkurst1.ekb.terraform_logviewer.dto.LogFileInfo(l.logFileId, MAX(l.timestamp), COUNT(l), SUM(CASE WHEN l.parsingError = true THEN 1 ELSE 0 END)) FROM LogEntry l GROUP BY l.logFileId")
     List<LogFileInfo> findLogFileInfo();
 }
