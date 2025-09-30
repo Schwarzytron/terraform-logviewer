@@ -1,3 +1,20 @@
+package ru.konkurst1.ekb.terraform_logviewer.service;
+
+import org.springframework.stereotype.Service;
+import ru.konkurst1.ekb.terraform_logviewer.model.LogEntry;
+import ru.konkurst1.ekb.terraform_logviewer.model.LogLevel;
+
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 @Service
 public class LogParserService {
     
@@ -49,8 +66,8 @@ public class LogParserService {
             boolean hasJson = line.contains("{") && line.contains("}");
             
             LogEntry entry = new LogEntry(
-                line, timestamp, level, currentSection, 
-                extractMessage(line), hasJson
+                timestamp, level, currentSection, line,
+                    extractMessage(line), hasJson
             );
             
             entries.add(entry);
@@ -58,7 +75,7 @@ public class LogParserService {
             
             // Сохраняем контекст (последние 5 строк)
             if (context.size() > 5) {
-                context.remove(0);
+                context.removeFirst();
             }
         }
         
@@ -92,7 +109,7 @@ public class LogParserService {
         return null;
     }
     
-    private Instant parseTimestamp(String timestampStr) {
+    static public Instant parseTimestamp(String timestampStr) {
         try {
             return Instant.parse(timestampStr.replace(" ", "T") + "Z");
         } catch (Exception e) {

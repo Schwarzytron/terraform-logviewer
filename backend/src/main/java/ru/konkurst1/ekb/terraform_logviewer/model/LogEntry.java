@@ -1,3 +1,10 @@
+package ru.konkurst1.ekb.terraform_logviewer.model;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+
+import java.time.Instant;
+@Getter
 @Entity
 public class LogEntry {
     @Id
@@ -21,7 +28,7 @@ public class LogEntry {
 
     public LogEntry() {}
 
-    public LogEntry(String rawMessage, Instant timestamp, LogLevel level,
+    public LogEntry(Instant timestamp, LogLevel level, String rawMessage,
                     String section, String message, Boolean hasJson) {
         this.rawMessage = rawMessage;
         this.timestamp = timestamp;

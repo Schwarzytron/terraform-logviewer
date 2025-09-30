@@ -1,3 +1,22 @@
+package ru.konkurst1.ekb.terraform_logviewer.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import ru.konkurst1.ekb.terraform_logviewer.model.LogEntry;
+import ru.konkurst1.ekb.terraform_logviewer.model.LogLevel;
+import ru.konkurst1.ekb.terraform_logviewer.service.LogParserService;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/logs")
 @CrossOrigin(origins = "*")
@@ -33,8 +52,8 @@ public class LogController {
         
         // TODO: реализовать фильтрацию из БД
         List<LogEntry> mockEntries = Arrays.asList(
-            new LogEntry("Starting terraform plan", Instant.now(), LogLevel.INFO, "plan", "Starting terraform plan", false),
-            new LogEntry("Using deprecated parameter", Instant.now(), LogLevel.WARN, "plan", "Using deprecated parameter", false)
+            new LogEntry(Instant.now(), LogLevel.INFO, "Starting terraform plan", "plan", "Starting terraform plan", false),
+            new LogEntry(Instant.now(), LogLevel.WARN, "Using deprecated parameter", "plan", "Using deprecated parameter", false)
         );
         
         return ResponseEntity.ok(mockEntries);

@@ -5,11 +5,18 @@ services:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_ELASTICSEARCH_URIS=http://elasticsearch:9200
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/logviewer
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=password
     depends_on:
       - db
+      - elasticsearch
     volumes:
       - ./backend:/app
       - maven-repo:/root/.m2
+    networks:
+      - app-network
 
   frontend:
     build: ./frontend
@@ -17,9 +24,35 @@ services:
       - "3000:80"
     depends_on:
       - backend
+    networks:
+      - app-network
+
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - app-network
+
+  kibana:
+    image: kibana:8.11.0
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - app-network
 
   db:
-    image: postgres:17
+    image: postgres:13
     environment:
       POSTGRES_DB: logviewer
       POSTGRES_USER: postgres
@@ -28,7 +61,17 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    networks:
+      - app-network
 
 volumes:
-  maven-repo:
+  elasticsearch-data:
+    driver: local
   postgres-data:
+    driver: local
+  maven-repo:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
