@@ -1,17 +1,11 @@
 {
   "name": "terraform-logviewer-frontend",
   "version": "0.1.0",
-  "main": "src/index.tsx",
-  "private": true,
   "dependencies": {
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^6.8.0",
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/user-event": "^13.5.0",
     "bootstrap": "^5.3.8",
-    "react": "^18.3.1",
+    "react": "^19.1.1",
     "react-bootstrap": "^2.10.10",
-    "react-dom": "^18.3.1",
+    "react-dom": "^19.1.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
@@ -41,10 +35,9 @@
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^24.6.0",
-    "@types/react": "^18.3.25",
-    "@types/react-dom": "^18.3.7",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.4",
-    "react-scripts": "5.0.1",
     "typescript": "^5.9.2",
     "vite": "^7.1.7"
   }

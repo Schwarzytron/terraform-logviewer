@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Container, Row, Col } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-import LogUpload from './components/LogUpload';
+import LogUpload from './components/LogUpload.tsx';
 import SectionFilter from './components/SectionFilter';
 import StatsPanel from './components/StatsPanel';
 import LogViewer from './components/LogViewer';

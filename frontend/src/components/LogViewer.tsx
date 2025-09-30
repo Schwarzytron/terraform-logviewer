@@ -7,84 +7,78 @@ interface LogViewerProps {
 }
 
 const LogViewer: React.FC<LogViewerProps> = ({ entries }) => {
-  const getLevelVariant = (level: LogLevel) => {
-    switch (level) {
-      case LogLevel.ERROR: return 'danger';
-      case LogLevel.WARN: return 'warning';
-      case LogLevel.INFO: return 'info';
-      case LogLevel.DEBUG: return 'secondary';
-      default: return 'light';
+  const getRowClass = (entry: LogEntry) => {
+    if (entry.parsingError) return 'table-danger';
+    switch (entry.level) {
+      case LogLevel.ERROR: return 'table-danger';
+      case LogLevel.WARN: return 'table-warning';
+      default: return '';
     }
-  };
-
-  const getSectionVariant = (section: string) => {
-    switch (section) {
-      case 'plan': return 'primary';
-      case 'apply': return 'success';
-      default: return 'secondary';
-    }
-  };
-
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString();
   };
 
   return (
-    <div>
-      <h4>Parsed Log Entries ({entries.length})</h4>
-
-      <Table striped bordered hover responsive>
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Level</th>
-            <th>Section</th>
-            <th>Message</th>
-            <th>JSON</th>
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((entry) => (
-            <tr key={entry.id}>
-              <td className="text-nowrap">
-                {formatTimestamp(entry.timestamp)}
-              </td>
-              <td>
-                <Badge bg={getLevelVariant(entry.level)}>
-                  {entry.level}
-                </Badge>
-              </td>
-              <td>
-                <Badge bg={getSectionVariant(entry.section)}>
-                  {entry.section}
-                </Badge>
-              </td>
-              <td style={{ maxWidth: '500px' }}>
-                <div>
-                  <strong>{entry.message}</strong>
-                  {entry.rawMessage !== entry.message && (
-                    <div className="text-muted small mt-1">
-                      {entry.rawMessage}
-                    </div>
-                  )}
-                </div>
-              </td>
-              <td>
-                {entry.hasJson && (
-                  <Badge bg="info">JSON</Badge>
+    <Table striped bordered hover responsive>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Time</th>
+          <th>Level</th>
+          <th>Section</th>
+          <th>Message</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {entries.map((entry) => (
+          <tr key={entry.id} className={getRowClass(entry)}>
+            <td>{entry.lineNumber}</td>
+            <td className="text-nowrap">
+              {formatTimestamp(entry.timestamp)}
+              {!entry.timestamp && (
+                <Badge bg="secondary" className="ms-1">No TS</Badge>
+              )}
+            </td>
+            <td>
+              <Badge bg={getLevelVariant(entry.level)}>
+                {entry.level}
+              </Badge>
+              {!entry.level && (
+                <Badge bg="dark" className="ms-1">No Level</Badge>
+              )}
+            </td>
+            <td>
+              <Badge bg={getSectionVariant(entry.section)}>
+                {entry.section}
+              </Badge>
+            </td>
+            <td style={{ maxWidth: '500px' }}>
+              <div>
+                {entry.parsingError ? (
+                  <div>
+                    <Alert variant="danger" className="py-1 mb-1">
+                      <strong>Parse Error:</strong> {entry.parsingErrorMessage}
+                    </Alert>
+                    <code className="text-muted">{entry.rawMessage}</code>
+                  </div>
+                ) : (
+                  <>
+                    <strong>{entry.message}</strong>
+                    {entry.hasJson && (
+                      <Badge bg="info" className="ms-1">JSON</Badge>
+                    )}
+                  </>
                 )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
-
-      {entries.length === 0 && (
-        <div className="text-center text-muted py-4">
-          No log entries to display. Upload a Terraform log file to get started.
-        </div>
-      )}
-    </div>
+              </div>
+            </td>
+            <td>
+              {entry.parsingError && (
+                <Badge bg="danger">Parse Error</Badge>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </Table>
   );
 };
 
