@@ -1,5 +1,7 @@
 package ru.konkurst1.ekb.terraform_logviewer.controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -11,17 +13,13 @@ import ru.konkurst1.ekb.terraform_logviewer.dto.LogFileInfo;
 import ru.konkurst1.ekb.terraform_logviewer.dto.LogUploadResponse;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogEntry;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogLevel;
-import ru.konkurst1.ekb.terraform_logviewer.service.LogParseResult;
+import ru.konkurst1.ekb.terraform_logviewer.model.LogParseResult;
 import ru.konkurst1.ekb.terraform_logviewer.service.LogParserService;
 import ru.konkurst1.ekb.terraform_logviewer.service.LogStorageService;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -29,7 +27,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/logs")
 @CrossOrigin(origins = "*")
 public class LogController {
-    
+    private static final Logger logger = LoggerFactory.getLogger(LogController.class);
+
     @Autowired
     private LogParserService logParserService;
     @Autowired
@@ -37,21 +36,47 @@ public class LogController {
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<LogUploadResponse> uploadLogs(@RequestParam("file") MultipartFile file) {
+        logger.info("=== STARTING LOG UPLOAD ===");
+        logger.info("File name: {}, Size: {}, Content type: {}",
+                file.getOriginalFilename(), file.getSize(), file.getContentType());
+
         try {
             String logFileId = UUID.randomUUID().toString();
+            logger.info("Generated log file ID: {}", logFileId);
             List<String> lines = readFileLines(file);
+            logger.info("Read {} lines from file", lines.size());
+
+            // Log first few lines for debugging
+            if (!lines.isEmpty()) {
+                logger.info("First 3 lines sample:");
+                for (int i = 0; i < Math.min(3, lines.size()); i++) {
+                    logger.info("Line {}: {}", i + 1, lines.get(i));
+                }
+            }
 
             LogParseResult result = logParserService.parseLogs(lines, logFileId);
-            logStorageService.saveEntries(result.getEntries());
+            logger.info("Parsing completed - Entries: {}, Errors: {}",
+                    result.entries().size(), result.errors().size());
 
-            return ResponseEntity.ok(new LogUploadResponse(
+            logStorageService.saveEntries(result.entries());
+            logger.info("Entries saved to database");
+
+            Map<String, Object> stats = calculateStats(result.entries());
+            logger.info("Stats calculated: {}", stats);
+
+            LogUploadResponse response = new LogUploadResponse(
                     logFileId,
-                    result.getEntries().size(),
-                    result.getErrors().size(),
-                    calculateStats(result.getEntries())
-            ));
+                    result.entries().size(),
+                    result.errors().size(),
+                    stats,
+                    result.entries()
+            );
+
+            logger.info("=== UPLOAD COMPLETED SUCCESSFULLY ===");
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
+            logger.error("=== UPLOAD FAILED ===", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(LogUploadResponse.error(e.getMessage()));
         }

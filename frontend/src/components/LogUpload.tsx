@@ -11,7 +11,11 @@ const LogUpload: React.FC<LogUploadProps> = ({ onLogsParsed }) => {
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+          console.log('No file selected');
+          return;
+        }
+    console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
 
     setIsUploading(true);
     setError('');
@@ -20,16 +24,30 @@ const LogUpload: React.FC<LogUploadProps> = ({ onLogsParsed }) => {
     formData.append('file', file);
 
     try {
+        console.log('Starting upload to:', 'http://localhost:8080/api/logs/upload');
+
       const response = await fetch('http://localhost:8080/api/logs/upload', {
         method: 'POST',
         body: formData,
       });
 
-      if (!response.ok) throw new Error('Upload failed');
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      if (!response.ok) {
+              const errorText = await response.text();
+              console.error('Upload failed with response:', errorText);
+              throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+            }
 
       const data = await response.json();
+
+      console.log('Upload successful, received data:', data);
+      console.log('Entries count:', data.entries?.length || 0);
+
       onLogsParsed(data);
     } catch (err) {
+      console.error('Upload error:', err);
       setError('Failed to upload and parse logs');
     } finally {
       setIsUploading(false);
@@ -38,13 +56,11 @@ const LogUpload: React.FC<LogUploadProps> = ({ onLogsParsed }) => {
 
   return (
     <div className="mb-4">
-      <h3>Upload Terraform Logs</h3>
       <Form>
         <Form.Group>
-          <Form.Label>Select log file:</Form.Label>
           <Form.Control
             type="file"
-            accept=".log,.txt"
+            accept=".json,.log,.txt"
             onChange={handleFileUpload}
             disabled={isUploading}
           />
@@ -53,7 +69,7 @@ const LogUpload: React.FC<LogUploadProps> = ({ onLogsParsed }) => {
 
       {isUploading && (
         <div className="mt-2">
-          <Spinner animation="border" size="sm" /> Parsing logs...
+          <Spinner animation="border" size="sm" /> Uploading and parsing logs...
         </div>
       )}
 
