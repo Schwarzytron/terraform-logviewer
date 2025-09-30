@@ -1,5 +1,7 @@
 package ru.konkurst1.ekb.terraform_logviewer.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -15,12 +17,15 @@ import java.util.List;
 
 @Service
 public class LogStorageService {
-    
+    private static final Logger logger = LoggerFactory.getLogger(LogStorageService.class);
+
     @Autowired
     private LogEntryRepository logEntryRepository;
     
     public void saveEntries(List<LogEntry> entries) {
+        logger.info("Saving {} log entries to database", entries.size());
         logEntryRepository.saveAll(entries);
+        logger.info("Successfully saved {} entries", entries.size());
     }
     
     public Page<LogEntry> findEntries(String logFileId, int page, int size,

@@ -24,6 +24,9 @@ const App: React.FC = () => {
   }, [logData, selectedSection, selectedLevel]);
 
   const handleLogsParsed = (data: LogResponse) => {
+    console.log('Raw data received from backend:', data);
+    console.log('Entries:', data.entries);
+    console.log('Stats:', data.stats);
     setLogData(data);
     setSelectedSection('all');
     setSelectedLevel('');
