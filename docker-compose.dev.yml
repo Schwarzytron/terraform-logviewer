@@ -12,16 +12,22 @@ services:
     depends_on:
       - db
       - elasticsearch
-    volumes:
-      - ./backend:/app
-      - maven-repo:/root/.m2
+#    volumes:
+#      - ./backend:/app
     networks:
       - app-network
 
   frontend:
     build: ./frontend
     ports:
-      - "3000:80"
+      - "3000:3000"
+    environment:
+      - VITE_PORT=3000
+      - VITE_API_URL=http://localhost:8080/api
+    volumes:
+      - ./frontend:/app  # Add volume for live reload
+      - /app/node_modules  # Prevent overwriting node_modules
+    command: npm run dev  # Override to run dev server
     depends_on:
       - backend
     networks:
@@ -41,7 +47,7 @@ services:
       - app-network
 
   kibana:
-    image: kibana:8.11.0
+    image: kibana:9.1.4
     ports:
       - "5601:5601"
     environment:
@@ -52,7 +58,7 @@ services:
       - app-network
 
   db:
-    image: postgres:13
+    image: postgres:17
     environment:
       POSTGRES_DB: logviewer
       POSTGRES_USER: postgres
@@ -68,8 +74,6 @@ volumes:
   elasticsearch-data:
     driver: local
   postgres-data:
-    driver: local
-  maven-repo:
     driver: local
 
 networks:

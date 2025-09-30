@@ -19,22 +19,33 @@ public class LogEntry {
     @Enumerated(EnumType.STRING)
     private LogLevel level;
 
-    private String section; // "plan", "apply", "other"
+    private String section;
 
     @Column(columnDefinition = "TEXT")
     private String message;
 
     private Boolean hasJson;
 
+    // Новые поля для обработки ошибок
+    private Boolean parsingError = false;
+    private String parsingErrorMessage;
+    private Integer lineNumber;
+    private String logFileId; // ID файла для группировки
+
+    // constructors
     public LogEntry() {}
 
-    public LogEntry(Instant timestamp, LogLevel level, String rawMessage,
-                    String section, String message, Boolean hasJson) {
+    public LogEntry(String rawMessage, Instant timestamp, LogLevel level,
+                    String section, String message, Boolean hasJson,
+                    Boolean parsingError, String parsingErrorMessage, Integer lineNumber) {
         this.rawMessage = rawMessage;
         this.timestamp = timestamp;
         this.level = level;
         this.section = section;
         this.message = message;
         this.hasJson = hasJson;
+        this.parsingError = parsingError;
+        this.parsingErrorMessage = parsingErrorMessage;
+        this.lineNumber = lineNumber;
     }
 }
