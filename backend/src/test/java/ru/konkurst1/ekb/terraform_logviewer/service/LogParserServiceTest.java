@@ -8,7 +8,6 @@ import ru.konkurst1.ekb.terraform_logviewer.model.LogEntry;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogLevel;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogParseResult;
 
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 
@@ -101,11 +100,6 @@ class LogParserServiceTest {
 
     @Test
     void detectLogLevel_WithVariousKeywords_ShouldDetectCorrectLevel() {
-        // Arrange
-        LogParserService parser = new LogParserService();
-
-        // Act & Assert - This would require making the method package-private or using reflection
-        // For now, we test through the public parseLogs method
         List<String> lines = Arrays.asList(
             "error: something went wrong",
             "warning: this is deprecated",

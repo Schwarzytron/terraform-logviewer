@@ -55,4 +55,9 @@ public class LogStorageService {
     public List<String> getDistinctRequestIds() {
         return logEntryRepository.findDistinctTfReqIds();
     }
+
+    public Page<LogEntry> getEntriesByPage(String logFileId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("timestamp").ascending());
+        return logEntryRepository.findByLogFileId(logFileId, pageable);
+    }
 }

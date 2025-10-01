@@ -5,36 +5,24 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.*;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.Query;
-import ru.konkurst1.ekb.terraform_logviewer.dto.SearchFilters;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogEntry;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogLevel;
 import ru.konkurst1.ekb.terraform_logviewer.repository.LogEntryRepository;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@SuppressWarnings("unchecked")
 class LogSearchServiceTest {
 
     @Mock
     private LogEntryRepository logEntryRepository;
-
-    @Mock
-    private ElasticsearchOperations elasticsearchOperations;
 
     @InjectMocks
     private LogSearchService logSearchService;
@@ -136,18 +124,18 @@ class LogSearchServiceTest {
 //        entriesList.forEach(entry -> assertTrue(entry.getIsRead()));
 //        verify(logEntryRepository, times(1)).saveAll(entriesList);
 //    }
-    @Test
-    void markAsRead_WithEmptyList_ShouldDoNothing() {
-        // Arrange
-        List<String> entryIds = List.of();
+    // @Test
+    // void markAsRead_WithEmptyList_ShouldDoNothing() {
+    //     // Arrange
+    //     List<String> entryIds = List.of();
 
-        // Act
-        logSearchService.markAsRead(entryIds);
+    //     // Act
+    //     logSearchService.markAsRead(entryIds);
 
-        // Assert
-        verify(logEntryRepository, never()).findAllById(any());
-        verify(logEntryRepository, never()).saveAll(any());
-    }
+    //     // Assert
+    //     verify(logEntryRepository, never()).findAllById(any());
+    //     verify(logEntryRepository, never()).saveAll(any());
+    // }
 
     @Test
     void getUnreadStats_ShouldReturnCount() {

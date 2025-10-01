@@ -1,10 +1,52 @@
 import React from 'react';
-import { Table, Badge, Alert } from 'react-bootstrap';
+import { Table, Badge, Alert, Button } from 'react-bootstrap';
 import { LogEntry, LogLevel } from '../types/LogEntry';
+
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  totalElements: number;
+  onPageChange: (page: number) => void;
+}
 
 interface LogViewerProps {
   entries: LogEntry[];
+  pagination?: PaginationProps;
 }
+
+const PaginationComponent: React.FC<PaginationProps> = ({
+  currentPage,
+  totalPages,
+  totalElements,
+  onPageChange
+}) => {
+  return (
+    <div className="d-flex justify-content-between align-items-center mt-3">
+      <div className="text-muted">
+        Page {currentPage + 1} of {totalPages} ({totalElements} total entries)
+      </div>
+      <div>
+        <Button
+          variant="outline-primary"
+          size="sm"
+          disabled={currentPage === 0}
+          onClick={() => onPageChange(currentPage - 1)}
+        >
+          Previous
+        </Button>
+        <span className="mx-2">|</span>
+        <Button
+          variant="outline-primary"
+          size="sm"
+          disabled={currentPage >= totalPages - 1}
+          onClick={() => onPageChange(currentPage + 1)}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+};
 
 const formatTimestamp = (timestamp: string): string => {
   if (!timestamp) return 'N/A';
@@ -33,7 +75,7 @@ const getSectionVariant = (section: string): string => {
   }
 };
 
-const LogViewer: React.FC<LogViewerProps> = ({ entries }) => {
+const LogViewer: React.FC<LogViewerProps> = ({ entries, pagination }) => {
   console.log('LogViewer rendering with entries:', entries?.length || 0);
 
   const getRowClass = (entry: LogEntry) => {
@@ -57,7 +99,9 @@ const LogViewer: React.FC<LogViewerProps> = ({ entries }) => {
     <div className="mt-3">
       <div className="mb-2 text-muted">
         Showing {entries.length} log entries
+        {pagination && ` (page ${pagination.currentPage + 1} of ${pagination.totalPages})`}
       </div>
+
       <Table striped bordered hover responsive>
         <thead>
           <tr>
@@ -120,6 +164,15 @@ const LogViewer: React.FC<LogViewerProps> = ({ entries }) => {
           ))}
         </tbody>
       </Table>
+
+      {pagination && (
+        <PaginationComponent
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalElements={pagination.totalElements}
+          onPageChange={pagination.onPageChange}
+        />
+      )}
     </div>
   );
 };

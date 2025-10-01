@@ -1,5 +1,7 @@
 package ru.konkurst1.ekb.terraform_logviewer.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +25,7 @@ import ru.konkurst1.ekb.terraform_logviewer.service.LogStorageService;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -44,45 +47,28 @@ public class LogController {
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<LogUploadResponse> uploadLogs(@RequestParam("file") MultipartFile file) {
         logger.info("=== STARTING LOG UPLOAD ===");
-        logger.info("File name: {}, Size: {}, Content type: {}",
-                file.getOriginalFilename(), file.getSize(), file.getContentType());
 
         try {
             String logFileId = UUID.randomUUID().toString();
-            logger.info("Generated log file ID: {}", logFileId);
             List<String> lines = readFileLines(file);
-            logger.info("Read {} lines from file", lines.size());
 
-            // Log first few lines for debugging
-            if (!lines.isEmpty()) {
-                logger.info("First 3 lines sample:");
-                for (int i = 0; i < Math.min(3, lines.size()); i++) {
-                    logger.info("Line {}: {}", i + 1, lines.get(i));
-                }
-            }
+            // Новый вызов
+            List<LogEntry> entries = logParserService.parseAndEnrichLogs(lines, logFileId);
 
-            LogParseResult result = logParserService.parseLogs(lines, logFileId);
-            logger.info("Parsing completed - Entries: {}, Errors: {}",
-                    result.entries().size(), result.errors().size());
+            logStorageService.saveEntries(entries);
 
-            logStorageService.saveEntries(result.entries());
-            logger.info("Entries saved to database");
-
-            Map<String, Object> stats = calculateStats(result.entries());
-            logger.info("Stats calculated: {}", stats);
-
+            Map<String, Object> stats = calculateStats(entries);
             LogUploadResponse response = new LogUploadResponse(
                     logFileId,
-                    result.entries().size(),
-                    result.errors().size(),
+                    entries.size(),
+                    0, // errors count - теперь всегда 0 т.к. ошибки парсинга обрабатываются иначе
                     stats,
-                    result.entries()
+                    entries
             );
 
-            logger.info("=== UPLOAD COMPLETED SUCCESSFULLY ===");
             return ResponseEntity.ok(response);
 
-        } catch (Exception e) {
+        } catch (IOException e) {
             logger.error("=== UPLOAD FAILED ===", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(LogUploadResponse.error(e.getMessage()));
@@ -96,7 +82,7 @@ public class LogController {
         }
 }
     @GetMapping("/entries")
-    public ResponseEntity<Page<LogEntry>> getLogs(
+    public ResponseEntity<Map<String, Object>> getLogs(
             @RequestParam String logFileId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
@@ -104,10 +90,18 @@ public class LogController {
             @RequestParam(required = false) String section,
             @RequestParam(required = false) Boolean hasErrors) {
 
-        Page<LogEntry> entries = logStorageService.findEntries(
+        Page<LogEntry> entriesPage = logStorageService.findEntries(
                 logFileId, page, size, level, section, hasErrors
         );
-        return ResponseEntity.ok(entries);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", entriesPage.getContent());
+        response.put("totalElements", entriesPage.getTotalElements());
+        response.put("totalPages", entriesPage.getTotalPages());
+        response.put("currentPage", entriesPage.getNumber());
+        response.put("pageSize", entriesPage.getSize());
+
+        return ResponseEntity.ok(response);
     }
     @GetMapping("/search")
     public ResponseEntity<List<LogEntry>> searchLogs(
@@ -119,8 +113,8 @@ public class LogController {
         Page<LogEntry> entriesPage = logStorageService.searchEntries(logFileId, query, page, size);
         List<LogEntry> entries = entriesPage.getContent();
 
-        int totalPages = entriesPage.getTotalPages();
-        long totalElements = entriesPage.getTotalElements();
+        // int totalPages = entriesPage.getTotalPages();
+        // long totalElements = entriesPage.getTotalElements();
 
         return ResponseEntity.ok(entries);
     }
@@ -185,6 +179,52 @@ public class LogController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    @PostMapping("/export/filtered")
+    public ResponseEntity<String> exportFilteredLogs(@RequestBody SearchFilters filters) {
+        try {
+            Page<LogEntry> entriesPage = logSearchService.advancedSearch(filters, filters.getLogFileId());
+            List<LogEntry> entries = entriesPage.getContent();
+
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+            Map<String, Object> exportData = new HashMap<>();
+            exportData.put("filters", filters);
+            exportData.put("entries", entries);
+            exportData.put("exportedAt", Instant.now().toString());
+            exportData.put("totalEntries", entries.size());
+
+            String jsonOutput = mapper.writeValueAsString(exportData);
+            return ResponseEntity.ok(jsonOutput);
+
+        } catch (Exception e) {
+            logger.error("Export failed", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("{\"error\": \"Export failed: " + e.getMessage() + "\"}");
+        }
+    }
+
+    @GetMapping("/export/curl-example")
+    public String getCurlExample() {
+        return """
+        # Простой экспорт ошибок
+        curl -X POST http://localhost:8080/api/logs/export/filtered \\\\
+            -H "Content-Type: application/json" \\\\
+            -d '{"level": "ERROR", "logFileId": "your-log-file-id"}'
+            
+        # Экспорт с фильтрами
+        curl -X POST http://localhost:8080/api/logs/export/filtered \\\\
+            -H "Content-Type: application/json" \\\\
+            -d '{
+              "logFileId": "your-log-file-id",
+              "level": "ERROR", 
+              "timestampFrom": "2024-01-15T00:00:00Z",
+              "tfResourceType": "t1_compute_instance"
+            }'
+        """;
+    }
+
     private Map<String, Object> calculateStats(List<LogEntry> entries) {
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalEntries", entries.size());
