@@ -1,6 +1,6 @@
 export enum LogLevel {
   ERROR = 'ERROR',
-  WARN = 'WARN', 
+  WARN = 'WARN',
   INFO = 'INFO',
   DEBUG = 'DEBUG'
 }
@@ -13,10 +13,15 @@ export interface LogEntry {
   section: string;
   message: string;
   hasJson: boolean;
-//   parsingError: boolean;
-//   parsingErrorMessage?: string;
-//   lineNumber: number;
-//   logFileId?: string;
+  parsingError: boolean;
+  parsingErrorMessage?: string;
+  lineNumber: number;
+  logFileId: string;
+  tfResourceType?: string;
+  tfReqId?: string;
+  isRead: boolean;
+  requestType?: string;
+  jsonBody?: string;
 }
 
 export interface ParsingStats {
@@ -27,15 +32,23 @@ export interface ParsingStats {
   warnEntries: number;
 }
 
-export interface LogUploadResponse {
+export interface LogResponse {
   logFileId: string;
-  entriesCount: number;
+  entriesProcessed: number;
   errorsCount: number;
-  stats: ParsingStats;
-  entries?: LogEntry[];
+  stats: Record<string, any>;
+  entries: LogEntry[];
 }
 
-export interface LogResponse {
-  entries: LogEntry[];
-  stats: ParsingStats;
+export interface SearchFilters {
+  tfResourceType?: string;
+  timestampFrom?: string;
+  timestampTo?: string;
+  level?: LogLevel;
+  section?: string;
+  tfReqId?: string;
+  onlyUnread?: boolean;
+  freeText?: string;
+  page?: number;
+  size?: number;
 }

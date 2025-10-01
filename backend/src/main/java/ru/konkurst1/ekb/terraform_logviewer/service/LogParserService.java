@@ -48,8 +48,8 @@ public class LogParserService {
         LogLevel.DEBUG, Arrays.asList("debug", "trace", "verbose")
     );
 
-    private String currentSection = "other";
-    private Instant lastTimestamp = Instant.now();
+//    private String currentSection = "other";
+//    private Instant lastTimestamp = Instant.now();
 
     public LogParseResult parseLogs(List<String> rawLines, String logFileId) {
         logger.info("Starting to parse {} lines for file ID: {}", rawLines.size(), logFileId);
@@ -90,46 +90,92 @@ public class LogParserService {
         return new LogParseResult(entries, errors);
     }
 
+    private Map<String, String> extractTerraformFields(String line) {
+        Map<String, String> fields = new HashMap<>();
+
+        // Extract tf_req_id pattern like "tf_req_id":"77001e53-2dd0-3642-9113-51d2c41f11ba"
+        Pattern reqIdPattern = Pattern.compile("\"tf_req_id\"\\s*:\\s*\"([^\"]+)\"");
+        Matcher reqIdMatcher = reqIdPattern.matcher(line);
+        if (reqIdMatcher.find()) {
+            fields.put("tf_req_id", reqIdMatcher.group(1));
+        }
+
+        // Extract resource type pattern like "tf_resource_type":"t1_vpc_network"
+        Pattern resourcePattern = Pattern.compile("\"tf_resource_type\"\\s*:\\s*\"([^\"]+)\"");
+        Matcher resourceMatcher = resourcePattern.matcher(line);
+        if (resourceMatcher.find()) {
+            fields.put("tf_resource_type", resourceMatcher.group(1));
+        }
+
+        // Extract request/response type
+        if (line.contains("\"tf_rpc\"")) {
+            fields.put("request_type", "request");
+        } else if (line.contains("\"tf_proto_version\"")) {
+            fields.put("request_type", "response");
+        }
+
+        return fields;
+    }
+
     private LogEntry parseSingleLine(String rawLine, int lineNumber, String currentSection,
                                      Instant lastTimestamp, String logFileId) {
         logger.debug("Parsing line {}: {}", lineNumber, rawLine);
-        // Пытаемся извлечь JSON
+
+        // Extract JSON data
         JsonNode jsonData = extractJson(rawLine);
         String cleanLine = removeJsonFromLine(rawLine);
-        logger.debug("After JSON removal: {}", cleanLine);
 
-        // Парсим timestamp
+        // Extract Terraform-specific fields
+        Map<String, String> tfFields = extractTerraformFields(rawLine);
+
+        // Parse timestamp
         Instant timestamp = extractTimestamp(cleanLine);
-        logger.debug("Extracted timestamp: {}", timestamp);
         if (timestamp == null) {
             timestamp = lastTimestamp;
-            logger.debug("Using previous timestamp: {}", timestamp);
         }
 
-        // Определяем уровень
+        // Determine level and section
         LogLevel level = detectLogLevel(cleanLine);
-        logger.debug("Detected level: {}", level);
-
-        // Определяем секцию
         String section = detectSection(cleanLine, currentSection);
-        logger.debug("Detected section: {}", section);
 
-        // Извлекаем чистое сообщение
+        // Extract clean message
         String message = extractCleanMessage(cleanLine);
-        logger.debug("Final message: {}", message);
 
-        LogEntry entry = new LogEntry(
-                rawLine, timestamp, level, section, message,
-                jsonData != null, false, null, lineNumber
+        // Use the full constructor
+        return new LogEntry(
+                rawLine,
+                timestamp,
+                level,
+                section,
+                message,
+                jsonData != null,
+                false,
+                null,
+                lineNumber,
+                tfFields.get("tf_resource_type"),
+                tfFields.get("tf_req_id"),
+                tfFields.get("request_type"),
+                jsonData != null ? jsonData.toString() : null,
+                logFileId
         );
-
-        logger.debug("Created entry: {}", entry);
-        return entry;
     }
+
     private LogEntry createErrorEntry(String rawLine, int lineNumber, String errorMessage, String logFileId) {
         return new LogEntry(
-                rawLine, Instant.now(), LogLevel.ERROR, "other",
-                "PARSING ERROR: " + rawLine, false, true, errorMessage, lineNumber
+                rawLine,
+                Instant.now(),
+                LogLevel.ERROR,
+                "other",
+                "PARSING ERROR: " + rawLine,
+                false,
+                true,
+                errorMessage,
+                lineNumber,
+                null,
+                null,
+                null,
+                null,
+                logFileId
         );
     }
     private JsonNode extractJson(String line) {
@@ -228,22 +274,22 @@ public class LogParserService {
         return withoutTimestamp;
     }
 
-    private List<String> readFileLines(MultipartFile file) throws IOException {
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(file.getInputStream()))) {
-            return reader.lines().collect(Collectors.toList());
-        }
-    }
-    private String extractMessage(String line) {
-        // Убираем timestamp из сообщения если есть
-        for (Pattern pattern : TIMESTAMP_PATTERNS) {
-            Matcher matcher = pattern.matcher(line);
-            if (matcher.find()) {
-                return line.replace(matcher.group(0), "").trim();
-            }
-        }
-        return line.trim();
-    }
+//    private List<String> readFileLines(MultipartFile file) throws IOException {
+//        try (BufferedReader reader = new BufferedReader(
+//                new InputStreamReader(file.getInputStream()))) {
+//            return reader.lines().collect(Collectors.toList());
+//        }
+//    }
+//    private String extractMessage(String line) {
+//        // Убираем timestamp из сообщения если есть
+//        for (Pattern pattern : TIMESTAMP_PATTERNS) {
+//            Matcher matcher = pattern.matcher(line);
+//            if (matcher.find()) {
+//                return line.replace(matcher.group(0), "").trim();
+//            }
+//        }
+//        return line.trim();
+//    }
 static public Instant parseTimestamp(String timestampStr) {
     try {
         return Instant.parse(timestampStr.replace(" ", "T") + "Z");
