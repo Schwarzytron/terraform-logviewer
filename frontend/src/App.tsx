@@ -106,8 +106,6 @@ const AppContent: React.FC = () => {
       <Container fluid className="py-4">
         <Row>
           <Col>
-            <h1 className="text-center mb-4">Terraform Log Viewer</h1>
-
             <LogUpload onLogsParsed={handleLogsParsed} />
 
             {logData && (
