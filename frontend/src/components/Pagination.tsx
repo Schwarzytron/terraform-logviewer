@@ -1,3 +1,5 @@
+import { Button } from "react-bootstrap";
+
 interface PaginationProps {
   currentPage: number;
   totalPages: number;

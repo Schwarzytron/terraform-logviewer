@@ -21,35 +21,38 @@ public class LogStorageService {
 
     @Autowired
     private LogEntryRepository logEntryRepository;
-    
+
     public void saveEntries(List<LogEntry> entries) {
-        logger.info("Saving {} log entries to database", entries.size());
+        logger.info("Saving {} log entries to Elasticsearch", entries.size());
         logEntryRepository.saveAll(entries);
         logger.info("Successfully saved {} entries", entries.size());
     }
-    
+
     public Page<LogEntry> findEntries(String logFileId, int page, int size,
                                       LogLevel level, String section, Boolean hasErrors) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("lineNumber").ascending());
-        
-        // Здесь будет сложный query с фильтрами
-        // Пока простой вариант:
-        if (hasErrors != null && hasErrors) {
-            return logEntryRepository.findByLogFileIdAndParsingError(logFileId, true, pageable);
-        }
-        
-        return logEntryRepository.findByLogFileId(logFileId, pageable);
+        Pageable pageable = PageRequest.of(page, size, Sort.by("timestamp").ascending());
+
+        return logEntryRepository.findByLogFileIdAndFilters(logFileId, level, section, hasErrors, pageable);
     }
-    
-    public List<LogEntry> searchEntries(String logFileId, String query, int page, int size) {
-        // Реализация поиска - можно через Elasticsearch или LIKE запросы
-        return logEntryRepository.findByLogFileIdAndMessageContainingIgnoreCase(
-            logFileId, query, PageRequest.of(page, size)
-        ).getContent();
+
+    public Long getUnreadCount(String logFileId) {
+        return logEntryRepository.countByLogFileIdAndIsRead(logFileId, false);
     }
-    
+
+    public Page<LogEntry> searchEntries(String logFileId, String query, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("timestamp").ascending());
+        return logEntryRepository.findByLogFileIdAndMessageContainingIgnoreCase(logFileId, query, pageable);
+    }
+
     public List<LogFileInfo> getLogFiles() {
-        // Группируем по logFileId и возвращаем информацию
         return logEntryRepository.findLogFileInfo();
+    }
+
+    public List<String> getDistinctResourceTypes() {
+        return logEntryRepository.findDistinctTfResourceTypes();
+    }
+
+    public List<String> getDistinctRequestIds() {
+        return logEntryRepository.findDistinctTfReqIds();
     }
 }
