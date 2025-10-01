@@ -31,21 +31,23 @@ message PluginInfo {
 
 message LogEntryProto {
   string id = 1;
-  string raw_message = 2;
-  string timestamp = 3;
-  string level = 4;
-  string section = 5;
-  string message = 6;
-  bool has_json = 7;
-  bool parsing_error = 8;
-  string parsing_error_message = 9;
-  int32 line_number = 10;
-  string log_file_id = 11;
-  string tf_resource_type = 12;
-  string tf_req_id = 13;
-  bool is_read = 14;
-  string request_type = 15;
-  string json_body = 16;
+  string timestamp = 2;
+  string level = 3;
+  string section = 4;
+  string message = 5;
+  int32 line_number = 6;
+  string log_file_id = 7;
+  string tf_resource_type = 8;
+  string tf_req_id = 9;
+  string request_type = 10;
+  string json_body = 11;  // Заменяет rawMessage + hasJson + jsonBody
+  // Новые поля можно добавить по необходимости
+  string module = 12;
+  string tf_provider_addr = 13;
+  int64 request_duration_ms = 14;
+  string request_status = 15;
+  string operation_type = 16;
+  int32 severity_score = 17;
 }
 
 message Empty {}

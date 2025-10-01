@@ -60,31 +60,31 @@ public class PluginController {
 
             // Получаем записи для обработки
             List<LogEntry> entries;
-            if (entryIds != null && !entryIds.isEmpty()) {
-                // Загружаем конкретные записи по ID
-                // Нужно добавить соответствующий метод в репозиторий
-                entries = List.of(); // TODO: implement
-            } else if (logFileId != null) {
-                // Используем фильтры для выбора записей
+            if (logFileId != null) {
                 SearchFilters filters = new SearchFilters();
                 filters.setLogFileId(logFileId);
-                // Применяем дополнительные фильтры из parameters если есть
                 entries = logSearchService.advancedSearch(filters, logFileId).getContent();
             } else {
-                throw new IllegalArgumentException("Either entryIds or logFileId must be provided");
+                throw new IllegalArgumentException("logFileId must be provided");
             }
 
+            // Теперь возвращает PluginResponse
             PluginResponse response = pluginManagerService.processWithPlugin(pluginName, entries, parameters);
 
             Map<String, Object> result = new HashMap<>();
-            result.put("statistics", response.getStatisticsMap());
-            result.put("processedCount", response.getProcessedEntriesCount());
+            result.put("statistics", response.getStatistics());
+            result.put("processedCount", entries.size());
+//            result.put("success", response.isSuccess());
             result.put("error", response.getErrorMessage());
+//            result.put("processedEntries", response.getProcessedEntries()); // todo: надо разобраться с этим
 
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             logger.error("Plugin execution failed", e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage(),
+                    "success", false
+            ));
         }
     }
 

@@ -16,8 +16,6 @@ public interface LogEntryRepository extends ElasticsearchRepository<LogEntry, St
 
     Page<LogEntry> findByLogFileId(String logFileId, Pageable pageable);
 
-    Page<LogEntry> findByLogFileIdAndParsingError(String logFileId, Boolean parsingError, Pageable pageable);
-
     Page<LogEntry> findByLogFileIdAndMessageContainingIgnoreCase(String logFileId, String query, Pageable pageable);
 
     @Query("""
@@ -53,9 +51,6 @@ public interface LogEntryRepository extends ElasticsearchRepository<LogEntry, St
         }
         """)
     List<LogFileInfo> findLogFileInfo();
-
-    Page<LogEntry> findByLogFileIdAndLevelAndSectionAndParsingError(
-            String logFileId, LogLevel level, String section, Boolean parsingError, Pageable pageable);
 
     Long countByLogFileIdAndIsRead(String logFileId, Boolean isRead);
 

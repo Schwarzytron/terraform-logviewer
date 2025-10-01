@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Container, Row, Col, Button } from 'react-bootstrap';
+import { Container, Row, Col, Button, Navbar, Nav } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 import LogUpload from './components/LogUpload.tsx';
@@ -8,10 +8,12 @@ import SectionFilter from './components/SectionFilter';
 import StatsPanel from './components/StatsPanel';
 import LogViewer from './components/LogViewer';
 import TimelineVisualization from './components/TimelineVisualization';
+import ThemeToggle from './components/ThemeToggle';
+import { ThemeProvider } from './contexts/ThemeContext';
 import PluginManager from './components/PluginManager';
 import { LogEntry, LogLevel, LogResponse, SearchFilters } from './types/LogEntry';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [logData, setLogData] = useState<LogResponse | null>(null);
   const [selectedSection, setSelectedSection] = useState<string>('all');
   const [selectedLevel, setSelectedLevel] = useState<LogLevel | ''>('');
@@ -55,6 +57,7 @@ const App: React.FC = () => {
       console.error('Failed to load page:', error);
     }
   };
+
   const handleLogsParsed = (data: LogResponse) => {
     console.log('Raw data received from backend:', data);
     setLogData(data);
@@ -79,63 +82,84 @@ const App: React.FC = () => {
     console.log('Timeline entry clicked:', entry);
     // Можно добавить функционал для показа деталей цепочки запросов
   };
+
   return (
-    <Container fluid className="py-4">
-      <Row>
-        <Col>
-          <h1 className="text-center mb-4">Terraform Log Viewer</h1>
+    <>
+      <Navbar bg="body" className="border-bottom">
+        <Container>
+          <Navbar.Brand>
+            <h1 className="h4 mb-0">Terraform Log Viewer</h1>
+          </Navbar.Brand>
+          <Nav className="ms-auto">
+            <ThemeToggle />
+          </Nav>
+        </Container>
+      </Navbar>
+      <Container fluid className="py-4">
+        <Row>
+          <Col>
+            <h1 className="text-center mb-4">Terraform Log Viewer</h1>
 
-          <LogUpload onLogsParsed={handleLogsParsed} />
+            <LogUpload onLogsParsed={handleLogsParsed} />
 
-          {logData && (
-            <>
-              <StatsPanel stats={logData.stats} />
-              <SearchPanel
-                logFileId={logData.logFileId}
-                onSearch={handleSearch}
-                onReset={handleSearchReset}
-                availableResourceTypes={[]}
-              />
-              <SectionFilter
-                section={selectedSection}
-                level={selectedLevel}
-                onSectionChange={setSelectedSection}
-                onLevelChange={setSelectedLevel}
-              />
-              {isSearchActive && (
-                <div className="alert alert-info mb-3">
-                  Showing {searchResults.length} search results
-                  <Button
-                    variant="outline-info"
-                    size="sm"
-                    className="ms-2"
-                    onClick={handleSearchReset}
-                  >
-                    Show All Entries
-                  </Button>
-                </div>
-              )}
-              <LogViewer
-                entries={displayedEntries}
-                pagination={
-                  isSearchActive ? undefined : {
-                    currentPage,
-                    totalPages,
-                    totalElements,
-                    onPageChange: handlePageChange
+            {logData && (
+              <>
+                <StatsPanel stats={logData.stats} />
+                <SearchPanel
+                  logFileId={logData.logFileId}
+                  onSearch={handleSearch}
+                  onReset={handleSearchReset}
+                  availableResourceTypes={[]}
+                />
+                <SectionFilter
+                  section={selectedSection}
+                  level={selectedLevel}
+                  onSectionChange={setSelectedSection}
+                  onLevelChange={setSelectedLevel}
+                />
+                {isSearchActive && (
+                  <div className="alert alert-info mb-3">
+                    Showing {searchResults.length} search results
+                    <Button
+                      variant="outline-info"
+                      size="sm"
+                      className="ms-2"
+                      onClick={handleSearchReset}
+                    >
+                      Show All Entries
+                    </Button>
+                  </div>
+                )}
+                <LogViewer
+                  entries={displayedEntries}
+                  pagination={
+                    isSearchActive ? undefined : {
+                      currentPage,
+                      totalPages,
+                      totalElements,
+                      onPageChange: handlePageChange
+                    }
                   }
-                }
-              />
-              <TimelineVisualization
-                entries={logData.entries}
-                onEntryClick={handleTimelineClick}
-              />
-              <PluginManager logFileId={logData.logFileId} />
-            </>
-          )}
-        </Col>
-      </Row>
-    </Container>
+                />
+                <TimelineVisualization
+                  entries={logData.entries}
+                  onEntryClick={handleTimelineClick}
+                />
+                <PluginManager logFileId={logData.logFileId} />
+              </>
+            )}
+          </Col>
+        </Row>
+      </Container>
+    </>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 };
 

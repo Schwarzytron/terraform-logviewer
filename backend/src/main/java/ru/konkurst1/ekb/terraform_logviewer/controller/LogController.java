@@ -47,42 +47,25 @@ public class LogController {
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<LogUploadResponse> uploadLogs(@RequestParam("file") MultipartFile file) {
         logger.info("=== STARTING LOG UPLOAD ===");
-        logger.info("File name: {}, Size: {}, Content type: {}",
-                file.getOriginalFilename(), file.getSize(), file.getContentType());
 
         try {
             String logFileId = UUID.randomUUID().toString();
-            logger.info("Generated log file ID: {}", logFileId);
             List<String> lines = readFileLines(file);
-            logger.info("Read {} lines from file", lines.size());
 
-            // Log first few lines for debugging
-            if (!lines.isEmpty()) {
-                logger.info("First 3 lines sample:");
-                for (int i = 0; i < Math.min(3, lines.size()); i++) {
-                    logger.info("Line {}: {}", i + 1, lines.get(i));
-                }
-            }
+            // Новый вызов
+            List<LogEntry> entries = logParserService.parseAndEnrichLogs(lines, logFileId);
 
-            LogParseResult result = logParserService.parseLogs(lines, logFileId);
-            logger.info("Parsing completed - Entries: {}, Errors: {}",
-                    result.entries().size(), result.errors().size());
+            logStorageService.saveEntries(entries);
 
-            logStorageService.saveEntries(result.entries());
-            logger.info("Entries saved to database");
-
-            Map<String, Object> stats = calculateStats(result.entries());
-            logger.info("Stats calculated: {}", stats);
-
+            Map<String, Object> stats = calculateStats(entries);
             LogUploadResponse response = new LogUploadResponse(
                     logFileId,
-                    result.entries().size(),
-                    result.errors().size(),
+                    entries.size(),
+                    0, // errors count - теперь всегда 0 т.к. ошибки парсинга обрабатываются иначе
                     stats,
-                    result.entries()
+                    entries
             );
 
-            logger.info("=== UPLOAD COMPLETED SUCCESSFULLY ===");
             return ResponseEntity.ok(response);
 
         } catch (IOException e) {

@@ -6,108 +6,69 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
-import org.springframework.data.elasticsearch.annotations.DateFormat;
 
 import java.time.Instant;
 
 @Getter
 @Setter
-@Document(indexName = "log_entries")
+@Document(indexName = "terraform_logs")
 public class LogEntry {
     @Id
     private String id;
 
-    @Field(type = FieldType.Text, analyzer = "standard")
-    private String rawMessage;
-
-    @Field(type = FieldType.Date, format = DateFormat.date_time)
+    @Field(type = FieldType.Date)
     private Instant timestamp;
 
     @Field(type = FieldType.Keyword)
-    private LogLevel level;
-
-    @Field(type = FieldType.Keyword)
-    private String section;
-
-    @Field(type = FieldType.Text, analyzer = "standard")
-    private String message;
-
-    @Field(type = FieldType.Boolean)
-    private Boolean hasJson;
-
-    // Fields for error handling
-    @Field(type = FieldType.Boolean)
-    private Boolean parsingError = false;
+    private String level;
 
     @Field(type = FieldType.Text)
-    private String parsingErrorMessage;
-
-    @Field(type = FieldType.Integer)
-    private Integer lineNumber;
+    private String message;
 
     @Field(type = FieldType.Keyword)
     private String logFileId;
 
+    @Field(type = FieldType.Keyword)
+    private String section; // "plan", "apply", "other"
+
+    // Terraform-specific fields
     @Field(type = FieldType.Keyword)
     private String tfResourceType;
 
     @Field(type = FieldType.Keyword)
     private String tfReqId;
 
-    @Field(type = FieldType.Boolean)
-    private Boolean isRead = false;
+    @Field(type = FieldType.Keyword)
+    private String requestType; // "request", "response"
 
     @Field(type = FieldType.Keyword)
-    private String requestType; // "request", "response", or null
+    private String module;
 
-    @Field(type = FieldType.Text, analyzer = "standard")
-    private String jsonBody;
+    @Field(type = FieldType.Keyword)
+    private String tfProviderAddr;
 
-    public LogEntry() {}
+    // Raw JSON для полного доступа к данным
+    @Field(type = FieldType.Object, enabled = true)
+    private Object rawJson;
 
-    public LogEntry(String id, String rawMessage, Instant timestamp, LogLevel level,
-                    String section, String message, Boolean hasJson,
-                    Boolean parsingError, String parsingErrorMessage,
-                    Integer lineNumber, String tfResourceType, String tfReqId,
-                    String requestType, String jsonBody, String logFileId) {
-        this.id = id;
-        this.rawMessage = rawMessage;
-        this.timestamp = timestamp;
-        this.level = level;
-        this.section = section;
-        this.message = message;
-        this.hasJson = hasJson;
-        this.parsingError = parsingError;
-        this.parsingErrorMessage = parsingErrorMessage;
-        this.lineNumber = lineNumber;
-        this.tfResourceType = tfResourceType;
-        this.tfReqId = tfReqId;
-        this.requestType = requestType;
-        this.jsonBody = jsonBody;
-        this.logFileId = logFileId;
-        this.isRead = false;
-    }
+    @Field(type = FieldType.Integer)
+    private Integer lineNumber;
 
-    // Constructor without ID for new entries (ID will be generated)
-    public LogEntry(String rawMessage, Instant timestamp, LogLevel level,
-                    String section, String message, Boolean hasJson,
-                    Boolean parsingError, String parsingErrorMessage,
-                    Integer lineNumber, String tfResourceType, String tfReqId,
-                    String requestType, String jsonBody, String logFileId) {
-        this.rawMessage = rawMessage;
-        this.timestamp = timestamp;
-        this.level = level;
-        this.section = section;
-        this.message = message;
-        this.hasJson = hasJson;
-        this.parsingError = parsingError;
-        this.parsingErrorMessage = parsingErrorMessage;
-        this.lineNumber = lineNumber;
-        this.tfResourceType = tfResourceType;
-        this.tfReqId = tfReqId;
-        this.requestType = requestType;
-        this.jsonBody = jsonBody;
-        this.logFileId = logFileId;
-        this.isRead = false;
-    }
+    @Field(type = FieldType.Long)
+    private Long requestDurationMs;
+
+    @Field(type = FieldType.Keyword)
+    private String requestStatus; // "success", "failed", "warning"
+
+    @Field(type = FieldType.Keyword)
+    private String operationType; // "create", "update", "delete", "read"
+
+    @Field(type = FieldType.Integer)
+    private Integer severityScore;
+
+    @Field(type = FieldType.Boolean)
+    private Boolean isPartOfRequestChain;
+
+    @Field(type = FieldType.Boolean)
+    private Boolean isRead = false;
 }
