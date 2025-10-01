@@ -11,10 +11,13 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import ru.konkurst1.ekb.terraform_logviewer.dto.LogFileInfo;
 import ru.konkurst1.ekb.terraform_logviewer.dto.LogUploadResponse;
+import ru.konkurst1.ekb.terraform_logviewer.dto.SearchFilters;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogEntry;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogLevel;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogParseResult;
+import ru.konkurst1.ekb.terraform_logviewer.repository.LogEntryRepository;
 import ru.konkurst1.ekb.terraform_logviewer.service.LogParserService;
+import ru.konkurst1.ekb.terraform_logviewer.service.LogSearchService;
 import ru.konkurst1.ekb.terraform_logviewer.service.LogStorageService;
 
 import java.io.BufferedReader;
@@ -33,6 +36,10 @@ public class LogController {
     private LogParserService logParserService;
     @Autowired
     private LogStorageService logStorageService;
+    @Autowired
+    private LogSearchService logSearchService;
+    @Autowired
+    private LogEntryRepository logEntryRepository;
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<LogUploadResponse> uploadLogs(@RequestParam("file") MultipartFile file) {
@@ -109,7 +116,12 @@ public class LogController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
 
-        List<LogEntry> entries = logStorageService.searchEntries(logFileId, query, page, size);
+        Page<LogEntry> entriesPage = logStorageService.searchEntries(logFileId, query, page, size);
+        List<LogEntry> entries = entriesPage.getContent();
+
+        int totalPages = entriesPage.getTotalPages();
+        long totalElements = entriesPage.getTotalElements();
+
         return ResponseEntity.ok(entries);
     }
 
@@ -128,7 +140,51 @@ public class LogController {
         
         return ResponseEntity.ok(stats);
     }
-    
+    @PostMapping("/search/advanced")
+    public ResponseEntity<Page<LogEntry>> advancedSearch(
+            @RequestBody SearchFilters filters, @RequestParam(required = false) String logFileId) {
+        try {
+            Page<LogEntry> results = logSearchService.advancedSearch(filters, logFileId);
+            return ResponseEntity.ok(results);
+        } catch (Exception e) {
+            logger.error("Advanced search failed", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @GetMapping("/chains/{tfReqId}")
+    public ResponseEntity<List<LogEntry>> getRequestChain(@PathVariable String tfReqId) {
+        try {
+            List<LogEntry> chain = logSearchService.getRequestChain(tfReqId);
+            return ResponseEntity.ok(chain);
+        } catch (Exception e) {
+            logger.error("Failed to get request chain", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PostMapping("/mark-read")
+    public ResponseEntity<Void> markAsRead(@RequestBody Map<String, List<String>> request) {
+        try {
+            List<String> entryIds = request.get("entryIds");
+            logSearchService.markAsRead(entryIds);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            logger.error("Failed to mark entries as read", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @GetMapping("/resource-types")
+    public ResponseEntity<List<String>> getResourceTypes() {
+        try {
+            List<String> types = logEntryRepository.findDistinctTfResourceTypes();
+            return ResponseEntity.ok(types);
+        } catch (Exception e) {
+            logger.error("Failed to get resource types", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
     private Map<String, Object> calculateStats(List<LogEntry> entries) {
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalEntries", entries.size());

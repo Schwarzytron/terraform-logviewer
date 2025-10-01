@@ -12,9 +12,9 @@ const LogUpload: React.FC<LogUploadProps> = ({ onLogsParsed }) => {
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) {
-          console.log('No file selected');
-          return;
-        }
+      console.log('No file selected');
+      return;
+    }
     console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
 
     setIsUploading(true);
@@ -24,7 +24,7 @@ const LogUpload: React.FC<LogUploadProps> = ({ onLogsParsed }) => {
     formData.append('file', file);
 
     try {
-        console.log('Starting upload to:', 'http://localhost:8080/api/logs/upload');
+      console.log('Starting upload to:', 'http://localhost:8080/api/logs/upload');
 
       const response = await fetch('http://localhost:8080/api/logs/upload', {
         method: 'POST',
@@ -35,10 +35,10 @@ const LogUpload: React.FC<LogUploadProps> = ({ onLogsParsed }) => {
       console.log('Response ok:', response.ok);
 
       if (!response.ok) {
-              const errorText = await response.text();
-              console.error('Upload failed with response:', errorText);
-              throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
-            }
+        const errorText = await response.text();
+        console.error('Upload failed with response:', errorText);
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+      }
 
       const data = await response.json();
 

@@ -1,38 +1,44 @@
 import React from 'react';
-import { Card, Row, Col } from 'react-bootstrap';
-import { ParsingStats } from '../types/LogEntry';
+import { Card, Row, Col, Badge } from 'react-bootstrap';
 
 interface StatsPanelProps {
-  stats: ParsingStats;
+  stats: Record<string, any>;
 }
 
 const StatsPanel: React.FC<StatsPanelProps> = ({ stats }) => {
   return (
     <Card className="mb-4">
-      <Card.Header>
-        <h5 className="mb-0">Parsing Statistics</h5>
-      </Card.Header>
       <Card.Body>
-        <Row>
-          <Col md={3} className="text-center">
-            <div className="h4 text-primary mb-1">{stats.totalEntries}</div>
-            <div className="text-muted">Total Entries</div>
+        <Row className="text-center">
+          <Col>
+            <h6>Total Entries</h6>
+            <Badge bg="primary" className="fs-6">
+              {stats.totalEntries || 0}
+            </Badge>
           </Col>
-          <Col md={2} className="text-center">
-            <div className="h4 text-info mb-1">{stats.planSectionEntries}</div>
-            <div className="text-muted">Plan</div>
+          <Col>
+            <h6>Plan Section</h6>
+            <Badge bg="info" className="fs-6">
+              {stats.planSectionEntries || 0}
+            </Badge>
           </Col>
-          <Col md={2} className="text-center">
-            <div className="h4 text-success mb-1">{stats.applySectionEntries}</div>
-            <div className="text-muted">Apply</div>
+          <Col>
+            <h6>Apply Section</h6>
+            <Badge bg="success" className="fs-6">
+              {stats.applySectionEntries || 0}
+            </Badge>
           </Col>
-          <Col md={2} className="text-center">
-            <div className="h4 text-danger mb-1">{stats.errorEntries}</div>
-            <div className="text-muted">Errors</div>
+          <Col>
+            <h6>Errors</h6>
+            <Badge bg="danger" className="fs-6">
+              {stats.errorEntries || 0}
+            </Badge>
           </Col>
-          <Col md={3} className="text-center">
-            <div className="h4 text-warning mb-1">{stats.warnEntries}</div>
-            <div className="text-muted">Warnings</div>
+          <Col>
+            <h6>Warnings</h6>
+            <Badge bg="warning" className="fs-6">
+              {stats.warnEntries || 0}
+            </Badge>
           </Col>
         </Row>
       </Card.Body>
