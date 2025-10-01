@@ -230,9 +230,15 @@ public class LogController {
         stats.put("totalEntries", entries.size());
         stats.put("planSectionEntries", entries.stream().filter(e -> "plan".equals(e.getSection())).count());
         stats.put("applySectionEntries", entries.stream().filter(e -> "apply".equals(e.getSection())).count());
-        stats.put("errorEntries", entries.stream().filter(e -> LogLevel.ERROR.equals(e.getLevel())).count());
-        stats.put("warnEntries", entries.stream().filter(e -> LogLevel.WARN.equals(e.getLevel())).count());
-        
+
+        // Исправлено: сравниваем со строкой, а не с enum
+        stats.put("errorEntries", entries.stream()
+                .filter(e -> "ERROR".equals(e.getLevel()))
+                .count());
+        stats.put("warnEntries", entries.stream()
+                .filter(e -> "WARN".equals(e.getLevel()))
+                .count());
+
         return stats;
     }
 }
