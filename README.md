@@ -32,10 +32,8 @@
 ### Backend
 - **Spring Boot 3.5.6** - основной фреймворк
 - **Java 21** - язык программирования
-- **PostgreSQL** - основное хранилище данных
 - **Elasticsearch** - полнотекстовый поиск
 - **gRPC** - система плагинов
-- **JPA/Hibernate** - ORM
 
 ### Frontend
 - **React 18** - пользовательский интерфейс
@@ -61,8 +59,8 @@
 git clone https://github.com/Schwarzytron/terraform-logviewer
 cd terraform-logviewer
 docker-compose up -d
-Доступ к приложению
 ```
+**Доступ к приложению**
 
 Frontend: http://localhost:3000
 
