@@ -5,23 +5,26 @@ spring:
         enabled: true
   elasticsearch:
     uris: http://elasticsearch:9200
-    connection-timeout: 10s
+    connection-timeout: 30s
     socket-timeout: 30s
-
+  servlet:
+    multipart:
+      max-file-size: 4096MB
+      max-request-size: 4096MB
 logging:
   level:
     # Application packages - set to DEBUG for development
-    ru.konkurst1.ekb.terraform_logviewer: DEBUG
+    '[ru.konkurst1.ekb.terraform_logviewer]': DEBUG
     # Spring framework - set to INFO to avoid too much noise
-    org.springframework: INFO
-    org.springframework.web: DEBUG
-    org.springframework.data: INFO
+    '[org.springframework]': INFO
+    '[org.springframework.web]': DEBUG
+    '[org.springframework.data]': INFO
     # Database - set to DEBUG to see SQL queries
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    '[org.hibernate.SQL]': DEBUG
+    '[org.hibernate.type.descriptor.sql.BasicBinder]': TRACE
     # Elasticsearch
-    org.elasticsearch: INFO
-    org.springframework.data.elasticsearch: DEBUG
+    '[org.elasticsearch]': INFO
+    '[org.springframework.data.elasticsearch]': DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

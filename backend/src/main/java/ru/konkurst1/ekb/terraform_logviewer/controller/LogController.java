@@ -82,7 +82,7 @@ public class LogController {
             logger.info("=== UPLOAD COMPLETED SUCCESSFULLY ===");
             return ResponseEntity.ok(response);
 
-        } catch (Exception e) {
+        } catch (IOException e) {
             logger.error("=== UPLOAD FAILED ===", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(LogUploadResponse.error(e.getMessage()));
@@ -119,8 +119,8 @@ public class LogController {
         Page<LogEntry> entriesPage = logStorageService.searchEntries(logFileId, query, page, size);
         List<LogEntry> entries = entriesPage.getContent();
 
-        int totalPages = entriesPage.getTotalPages();
-        long totalElements = entriesPage.getTotalElements();
+        // int totalPages = entriesPage.getTotalPages();
+        // long totalElements = entriesPage.getTotalElements();
 
         return ResponseEntity.ok(entries);
     }

@@ -2,17 +2,15 @@ package ru.konkurst1.ekb.terraform_logviewer.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
+
 import ru.konkurst1.ekb.terraform_logviewer.model.LogEntry;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogLevel;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogParseResult;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -20,7 +18,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 @Service
 public class LogParserService {
@@ -186,7 +185,7 @@ public class LogParserService {
                 ObjectMapper mapper = new ObjectMapper();
                 return mapper.readTree(jsonStr);
             }
-        } catch (Exception e) {
+        } catch (JsonProcessingException e) {
             // Игнорируем ошибки парсинга JSON
         }
         return null;

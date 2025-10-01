@@ -57,8 +57,6 @@ public interface LogEntryRepository extends ElasticsearchRepository<LogEntry, St
     Page<LogEntry> findByLogFileIdAndLevelAndSectionAndParsingError(
             String logFileId, LogLevel level, String section, Boolean parsingError, Pageable pageable);
 
-    Page<LogEntry> findByLogFileIdAndFilters(String logFileId, LogLevel level, String section, Boolean hasErrors, Pageable pageable);
-
     Long countByLogFileIdAndIsRead(String logFileId, Boolean isRead);
 
     List<LogEntry> findByTfReqIdOrderByTimestamp(String tfReqId);

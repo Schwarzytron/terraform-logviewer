@@ -11,7 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
-import ru.konkurst1.ekb.terraform_logviewer.dto.LogFileInfo;
 import ru.konkurst1.ekb.terraform_logviewer.dto.LogUploadResponse;
 import ru.konkurst1.ekb.terraform_logviewer.dto.SearchFilters;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogEntry;
@@ -123,7 +122,7 @@ class LogControllerTest {
 
         // Act
         ResponseEntity<Page<LogEntry>> response = logController.advancedSearch(filters, null);
-Mig
+
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
