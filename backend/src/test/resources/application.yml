@@ -14,7 +14,7 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        format_sql: false
+        '[format_sql]': false
         dialect: org.hibernate.dialect.H2Dialect
   h2:
     console:
@@ -22,13 +22,14 @@ spring:
   sql:
     init:
       mode: never
-
-# Disable Elasticsearch auto-configuration for tests
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchClientAutoConfiguration
 elasticsearch:
   enabled: false
 
 logging:
   level:
-    org.hibernate: ERROR
-    org.springframework: ERROR
-    ru.konkurst1.ekb.terraform_logviewer: DEBUG
+    '[org.hibernate]': ERROR
+    '[org.springframework]': DEBUG
+    '[ru.konkurst1.ekb.terraform_logviewer]': DEBUG

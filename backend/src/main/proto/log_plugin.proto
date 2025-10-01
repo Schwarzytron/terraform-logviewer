@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package logplugin;
+
+option java_package = "ru.konkurst1.ekb.terraform_logviewer.plugin";
+option java_multiple_files = true;
+option java_outer_classname = "LogPluginProto";
+
+service LogPlugin {
+  rpc Process(PluginRequest) returns (PluginResponse);
+  rpc GetPluginInfo(Empty) returns (PluginInfo);
+}
+
+message PluginRequest {
+  repeated LogEntryProto entries = 1;
+  map<string, string> parameters = 2;
+}
+
+message PluginResponse {
+  repeated LogEntryProto processed_entries = 1;
+  map<string, string> statistics = 2;
+  string error_message = 3;
+}
+
+message PluginInfo {
+  string name = 1;
+  string version = 2;
+  string description = 3;
+  repeated string supported_parameters = 4;
+}
+
+message LogEntryProto {
+  string id = 1;
+  string timestamp = 2;
+  string level = 3;
+  string section = 4;
+  string message = 5;
+  int32 line_number = 6;
+  string log_file_id = 7;
+  string tf_resource_type = 8;
+  string tf_req_id = 9;
+  string request_type = 10;
+  string json_body = 11;  // Заменяет rawMessage + hasJson + jsonBody
+  // Новые поля можно добавить по необходимости
+  string module = 12;
+  string tf_provider_addr = 13;
+  int64 request_duration_ms = 14;
+  string request_status = 15;
+  string operation_type = 16;
+  int32 severity_score = 17;
+}
+
+message Empty {}

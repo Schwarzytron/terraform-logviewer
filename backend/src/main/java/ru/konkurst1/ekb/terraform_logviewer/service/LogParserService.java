@@ -4,304 +4,116 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogEntry;
-import ru.konkurst1.ekb.terraform_logviewer.model.LogLevel;
-import ru.konkurst1.ekb.terraform_logviewer.model.LogParseResult;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
 public class LogParserService {
     private static final Logger logger = LoggerFactory.getLogger(LogParserService.class);
-    // Паттерны для определения секций
-    private final Pattern PLAN_START = Pattern.compile(".*Terraform will perform.*|.*terraform plan.*", Pattern.CASE_INSENSITIVE);
-    private final Pattern APPLY_START = Pattern.compile(".*terraform apply.*|.*Applying.*", Pattern.CASE_INSENSITIVE);
-    private final Pattern SECTION_END = Pattern.compile(".*Apply complete!.*|.*Plan:.*");
 
-    private static final Pattern JSON_PATTERN = Pattern.compile("\\{.*\\}");
+    @Autowired
+    private SectionDetectionService sectionDetectionService;
+    @Autowired
+    private TerraformContextEnricher contextEnricher;
+    public List<LogEntry> parseAndEnrichLogs(List<String> rawLines, String logFileId) {
+        // 1. Базовый парсинг JSON
+        List<LogEntry> entries = parseJsonLogs(rawLines, logFileId);
 
-    // Форматы временных меток
-    private final Pattern[] TIMESTAMP_PATTERNS = {
-        Pattern.compile("(\\d{4}-\\d{2}-\\d{2}[T\\s]\\d{2}:\\d{2}:\\d{2})"),
-        Pattern.compile("(\\d{2}:\\d{2}:\\d{2})"),
-        Pattern.compile("\\[(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2})]"),
-        Pattern.compile("(\\d{4}-\\d{2}-\\d{2}[T\\s]\\d{2}:\\d{2}:\\d{2})|(\\d{2}:\\d{2}:\\d{2})")
-    };
+        // 2. Обогащение бизнес-логикой (секции)
+        entries = sectionDetectionService.detectSections(entries);
 
-    // Ключевые слова для уровней
-    private final Map<LogLevel, List<String>> LEVEL_KEYWORDS = Map.of(
-        LogLevel.ERROR, Arrays.asList("error", "failed", "failure", "exception"),
-        LogLevel.WARN, Arrays.asList("warn", "warning", "deprecated"),
-        LogLevel.INFO, Arrays.asList("info", "applying", "creating", "destroying"),
-        LogLevel.DEBUG, Arrays.asList("debug", "trace", "verbose")
-    );
+        // 3. Дополнительное обогащение (группировка по tf_req_id и т.д.)
+        entries = contextEnricher.enrichWithTerraformContext(entries);
 
-//    private String currentSection = "other";
-//    private Instant lastTimestamp = Instant.now();
-
-    public LogParseResult parseLogs(List<String> rawLines, String logFileId) {
-        logger.info("Starting to parse {} lines for file ID: {}", rawLines.size(), logFileId);
-        List<LogEntry> entries = new ArrayList<>();
-        List<ParsingError> errors = new ArrayList<>();
-
-        String currentSection = "other";
-        Instant lastValidTimestamp = Instant.now();
-        int lineNumber = 0;
-
-        for (String rawLine : rawLines) {
-            lineNumber++;
-            try {
-                LogEntry entry = parseSingleLine(rawLine, lineNumber, currentSection, lastValidTimestamp, logFileId);
-                logger.debug("Parsed line {}: {}", lineNumber, entry.getMessage());
-
-                // Обновляем контекст
-                if (entry.getTimestamp() != null) {
-                    lastValidTimestamp = entry.getTimestamp();
-                }
-                if (!"other".equals(entry.getSection())) {
-                    currentSection = entry.getSection();
-                }
-
-                entries.add(entry);
-
-            } catch (Exception e) {
-                logger.error("Error parsing line {}: {}", lineNumber, e.getMessage(), e);
-
-                // Создаем запись с ошибкой парсинга
-                LogEntry errorEntry = createErrorEntry(rawLine, lineNumber, e.getMessage(), logFileId);
-                entries.add(errorEntry);
-                errors.add(new ParsingError(lineNumber, rawLine, e.getMessage()));
-            }
-        }
-        logger.info("Finished parsing {} lines", rawLines.size());
-
-        return new LogParseResult(entries, errors);
+        return entries;
     }
 
-    private Map<String, String> extractTerraformFields(String line) {
-        Map<String, String> fields = new HashMap<>();
-
-        // Extract tf_req_id pattern like "tf_req_id":"77001e53-2dd0-3642-9113-51d2c41f11ba"
-        Pattern reqIdPattern = Pattern.compile("\"tf_req_id\"\\s*:\\s*\"([^\"]+)\"");
-        Matcher reqIdMatcher = reqIdPattern.matcher(line);
-        if (reqIdMatcher.find()) {
-            fields.put("tf_req_id", reqIdMatcher.group(1));
-        }
-
-        // Extract resource type pattern like "tf_resource_type":"t1_vpc_network"
-        Pattern resourcePattern = Pattern.compile("\"tf_resource_type\"\\s*:\\s*\"([^\"]+)\"");
-        Matcher resourceMatcher = resourcePattern.matcher(line);
-        if (resourceMatcher.find()) {
-            fields.put("tf_resource_type", resourceMatcher.group(1));
-        }
-
-        // Extract request/response type
-        if (line.contains("\"tf_rpc\"")) {
-            fields.put("request_type", "request");
-        } else if (line.contains("\"tf_proto_version\"")) {
-            fields.put("request_type", "response");
-        }
-
-        return fields;
+    private List<LogEntry> parseJsonLogs(List<String> rawLines, String logFileId) {
+        return rawLines.stream()
+                .map(line -> parseSingleJsonLine(line, logFileId))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
-    private LogEntry parseSingleLine(String rawLine, int lineNumber, String currentSection,
-                                     Instant lastTimestamp, String logFileId) {
-        logger.debug("Parsing line {}: {}", lineNumber, rawLine);
-
-        // Extract JSON data
-        JsonNode jsonData = extractJson(rawLine);
-        String cleanLine = removeJsonFromLine(rawLine);
-
-        // Extract Terraform-specific fields
-        Map<String, String> tfFields = extractTerraformFields(rawLine);
-
-        // Parse timestamp
-        Instant timestamp = extractTimestamp(cleanLine);
-        if (timestamp == null) {
-            timestamp = lastTimestamp;
-        }
-
-        // Determine level and section
-        LogLevel level = detectLogLevel(cleanLine);
-        String section = detectSection(cleanLine, currentSection);
-
-        // Extract clean message
-        String message = extractCleanMessage(cleanLine);
-
-        // Use the full constructor
-        return new LogEntry(
-                rawLine,
-                timestamp,
-                level,
-                section,
-                message,
-                jsonData != null,
-                false,
-                null,
-                lineNumber,
-                tfFields.get("tf_resource_type"),
-                tfFields.get("tf_req_id"),
-                tfFields.get("request_type"),
-                jsonData != null ? jsonData.toString() : null,
-                logFileId
-        );
-    }
-
-    private LogEntry createErrorEntry(String rawLine, int lineNumber, String errorMessage, String logFileId) {
-        return new LogEntry(
-                rawLine,
-                Instant.now(),
-                LogLevel.ERROR,
-                "other",
-                "PARSING ERROR: " + rawLine,
-                false,
-                true,
-                errorMessage,
-                lineNumber,
-                null,
-                null,
-                null,
-                null,
-                logFileId
-        );
-    }
-    private JsonNode extractJson(String line) {
+    private LogEntry parseSingleJsonLine(String rawLine, String logFileId) {
         try {
-            Matcher matcher = JSON_PATTERN.matcher(line);
-            if (matcher.find()) {
-                String jsonStr = matcher.group();
-                ObjectMapper mapper = new ObjectMapper();
-                return mapper.readTree(jsonStr);
-            }
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode json = mapper.readTree(rawLine);
+
+            LogEntry entry = new LogEntry();
+            entry.setRawJson(mapper.readValue(rawLine, Object.class));
+
+            // Извлекаем базовые поля
+            extractBasicFields(json, entry);
+
+            // Извлекаем Terraform-специфичные поля
+            extractTerraformFields(json, entry);
+
+            return entry;
+
         } catch (Exception e) {
-            // Игнорируем ошибки парсинга JSON
+            logger.warn("Failed to parse JSON line: {}", e.getMessage());
+            return null;
         }
-        return null;
-    }
-    private String removeJsonFromLine(String line) {
-        return JSON_PATTERN.matcher(line).replaceAll("").trim();
     }
 
-    private String detectSection(String line, String currentSection) {
-        logger.trace("detectSection - Line: '{}', Current: {}", line, currentSection);
-
-        if (PLAN_START.matcher(line).matches()) {
-            logger.debug("Detected PLAN section from line: {}", line);
-            return "plan";
-        } else if (APPLY_START.matcher(line).matches()) {
-            logger.debug("Detected APPLY section from line: {}", line);
-            return "apply";
-        } else if (SECTION_END.matcher(line).matches()) {
-            logger.debug("Detected SECTION END, returning to 'other'");
-            return "other";
-        }
-
-        logger.trace("Keeping current section: {}", currentSection);
-        return currentSection;
-    }
-
-    private Instant extractTimestamp(String line) {
-        logger.trace("extractTimestamp - Line: {}", line);
-
-        for (Pattern pattern : TIMESTAMP_PATTERNS) {
-            Matcher matcher = pattern.matcher(line);
-            if (matcher.find()) {
-                String timestampStr = matcher.group(1);
-                logger.debug("Found timestamp pattern: {} -> {}", pattern.pattern(), timestampStr);
-                try {
-                    Instant timestamp = parseTimestamp(timestampStr);
-                    logger.debug("Successfully parsed timestamp: {}", timestamp);
-                    return timestamp;
-                } catch (Exception e) {
-                    logger.warn("Failed to parse timestamp '{}': {}", timestampStr, e.getMessage());
-                }
+    private void extractBasicFields(JsonNode json, LogEntry entry) {
+        // Обязательные поля из JSON логов Terraform
+        if (json.has("@timestamp")) {
+            try {
+                String timestampStr = json.get("@timestamp").asText();
+                // Конвертируем формат "2025-09-09T15:47:33.319437+03:00" в Instant
+                timestampStr = timestampStr.replace("+03:00", "Z");
+                entry.setTimestamp(Instant.parse(timestampStr));
+            } catch (Exception e) {
+                logger.warn("Failed to parse timestamp: {}", json.get("@timestamp").asText());
+                entry.setTimestamp(Instant.now());
             }
         }
 
-        logger.trace("No timestamp found in line");
-        return null;
-    }
-
-
-
-    private LogLevel detectLogLevel(String line) {
-        logger.trace("detectLogLevel - Line: {}", line);
-        String lowerLine = line.toLowerCase();
-
-        for (Map.Entry<LogLevel, List<String>> entry : LEVEL_KEYWORDS.entrySet()) {
-            for (String keyword : entry.getValue()) {
-                if (lowerLine.contains(keyword)) {
-                    logger.debug("Detected level {} from keyword '{}'", entry.getKey(), keyword);
-                    return entry.getKey();
-                }
+        if (json.has("@level")) {
+            String levelStr = json.get("@level").asText().toUpperCase();
+            try {
+                entry.setLevel(levelStr); // Сохраняем как строку "INFO", "DEBUG" и т.д.
+            } catch (Exception e) {
+                entry.setLevel("INFO"); // fallback
             }
         }
 
-        logger.debug("No specific level detected, defaulting to INFO");
-        return LogLevel.INFO; // По умолчанию
-    }
-
-    private String extractCleanMessage(String line) {
-        String withoutTimestamp = line;
-        // Убираем timestamp если нашли
-        for (Pattern pattern : TIMESTAMP_PATTERNS) {
-            if (pattern.matcher(line).find()) {
-                withoutTimestamp = pattern.matcher(line).replaceAll("").trim();
-                break;
-            }
-        }
-
-        // Убираем уровень логирования если он в начале
-        for (LogLevel level : LogLevel.values()) {
-            if (withoutTimestamp.toLowerCase().startsWith(level.name().toLowerCase())) {
-                return withoutTimestamp.substring(level.name().length()).trim();
-            }
-        }
-
-        return withoutTimestamp;
-    }
-
-//    private List<String> readFileLines(MultipartFile file) throws IOException {
-//        try (BufferedReader reader = new BufferedReader(
-//                new InputStreamReader(file.getInputStream()))) {
-//            return reader.lines().collect(Collectors.toList());
-//        }
-//    }
-//    private String extractMessage(String line) {
-//        // Убираем timestamp из сообщения если есть
-//        for (Pattern pattern : TIMESTAMP_PATTERNS) {
-//            Matcher matcher = pattern.matcher(line);
-//            if (matcher.find()) {
-//                return line.replace(matcher.group(0), "").trim();
-//            }
-//        }
-//        return line.trim();
-//    }
-static public Instant parseTimestamp(String timestampStr) {
-    try {
-        return Instant.parse(timestampStr.replace(" ", "T") + "Z");
-    } catch (Exception e) {
-        try {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            LocalDateTime localDateTime = LocalDateTime.parse(timestampStr, formatter);
-            return localDateTime.atZone(ZoneId.systemDefault()).toInstant();
-        } catch (Exception ex) {
-            return Instant.now();
+        if (json.has("@message")) {
+            entry.setMessage(json.get("@message").asText());
         }
     }
-}
 
+    private void extractTerraformFields(JsonNode json, LogEntry entry) {
+        // Terraform-specific поля для группировки и фильтрации
+        if (json.has("tf_resource_type")) {
+            entry.setTfResourceType(json.get("tf_resource_type").asText());
+        }
+
+        if (json.has("tf_req_id")) {
+            entry.setTfReqId(json.get("tf_req_id").asText());
+        }
+
+        if (json.has("tf_rpc")) {
+            entry.setRequestType("request");
+        } else if (json.has("tf_proto_version")) {
+            entry.setRequestType("response");
+        }
+
+        // Дополнительные поля которые могут быть полезны
+        if (json.has("@module")) {
+            entry.setModule(json.get("@module").asText());
+        }
+
+        if (json.has("tf_provider_addr")) {
+            entry.setTfProviderAddr(json.get("tf_provider_addr").asText());
+        }
+    }
 }
