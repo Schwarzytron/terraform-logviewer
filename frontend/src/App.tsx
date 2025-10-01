@@ -82,6 +82,14 @@ const AppContent: React.FC = () => {
     console.log('Timeline entry clicked:', entry);
     // Можно добавить функционал для показа деталей цепочки запросов
   };
+  const handleRequestChainSelect = (tfReqId: string) => {
+    // Фильтруем логи по выбранной цепочке
+    const chainEntries = logData?.entries.filter(entry => entry.tfReqId === tfReqId) || [];
+    setSearchResults(chainEntries);
+    setIsSearchActive(true);
+    // Можно добавить автоматическую прокрутку к этой цепочке
+    console.log('Selected request chain:', tfReqId);
+  };
 
   return (
     <>
@@ -105,6 +113,11 @@ const AppContent: React.FC = () => {
             {logData && (
               <>
                 <StatsPanel stats={logData.stats} />
+                <TimelineVisualization
+                  entries={logData.entries}
+                  onEntryClick={handleTimelineClick}
+                  onRequestChainSelect={handleRequestChainSelect}
+                />
                 <SearchPanel
                   logFileId={logData.logFileId}
                   onSearch={handleSearch}
@@ -130,21 +143,19 @@ const AppContent: React.FC = () => {
                     </Button>
                   </div>
                 )}
+
                 <LogViewer
                   entries={displayedEntries}
                   pagination={
-                    isSearchActive ? undefined : {
+                    !isSearchActive ? {
                       currentPage,
                       totalPages,
                       totalElements,
                       onPageChange: handlePageChange
-                    }
+                    } : undefined
                   }
                 />
-                <TimelineVisualization
-                  entries={logData.entries}
-                  onEntryClick={handleTimelineClick}
-                />
+
                 <PluginManager logFileId={logData.logFileId} />
               </>
             )}
