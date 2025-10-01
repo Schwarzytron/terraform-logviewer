@@ -25,9 +25,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 public class LogParserService {
     private static final Logger logger = LoggerFactory.getLogger(LogParserService.class);
     // Паттерны для определения секций
-    private final Pattern PLAN_START = Pattern.compile(".*Terraform will perform.*|.*terraform plan.*", Pattern.CASE_INSENSITIVE);
-    private final Pattern APPLY_START = Pattern.compile(".*terraform apply.*|.*Applying.*", Pattern.CASE_INSENSITIVE);
-    private final Pattern SECTION_END = Pattern.compile(".*Apply complete!.*|.*Plan:.*");
+    private final Pattern PLAN_START = Pattern.compile(".*Terraform will perform.*|.*starting Plan operation.*|.*terraform plan.*", Pattern.CASE_INSENSITIVE);
+    private final Pattern APPLY_START = Pattern.compile(".*terraform apply.*|.*starting Apply operation.*|.*Applying.*", Pattern.CASE_INSENSITIVE);
+    private final Pattern SECTION_END = Pattern.compile(".*Apply complete!.*|.*Plan:.*|.*complete!.*");
 
     private static final Pattern JSON_PATTERN = Pattern.compile("\\{.*\\}");
 

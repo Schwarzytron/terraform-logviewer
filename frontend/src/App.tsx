@@ -7,6 +7,8 @@ import SearchPanel from './components/SearchPanel.tsx';
 import SectionFilter from './components/SectionFilter';
 import StatsPanel from './components/StatsPanel';
 import LogViewer from './components/LogViewer';
+import TimelineVisualization from './components/TimelineVisualization';
+import PluginManager from './components/PluginManager';
 import { LogEntry, LogLevel, LogResponse, SearchFilters } from './types/LogEntry';
 
 const App: React.FC = () => {
@@ -15,6 +17,9 @@ const App: React.FC = () => {
   const [selectedLevel, setSelectedLevel] = useState<LogLevel | ''>('');
   const [searchResults, setSearchResults] = useState<LogEntry[]>([]);
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
 
   const displayedEntries = useMemo(() => {
     const entries = isSearchActive ? searchResults : (logData?.entries || []);
@@ -26,6 +31,30 @@ const App: React.FC = () => {
     });
   }, [logData, selectedSection, selectedLevel, searchResults, isSearchActive]);
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    loadPage(page);
+  };
+
+  const loadPage = async (page: number) => {
+    if (!logData?.logFileId) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/logs/entries?logFileId=${logData.logFileId}&page=${page}&size=50`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentPage(data.currentPage);
+        setTotalPages(data.totalPages);
+        setTotalElements(data.totalElements);
+        // Обновляем отображаемые записи
+        setLogData(prev => prev ? { ...prev, entries: data.content } : null);
+      }
+    } catch (error) {
+      console.error('Failed to load page:', error);
+    }
+  };
   const handleLogsParsed = (data: LogResponse) => {
     console.log('Raw data received from backend:', data);
     setLogData(data);
@@ -33,6 +62,7 @@ const App: React.FC = () => {
     setIsSearchActive(false);
     setSelectedSection('all');
     setSelectedLevel('');
+    setCurrentPage(0);
   };
 
   const handleSearch = (filters: SearchFilters, results: LogEntry[]) => {
@@ -45,6 +75,10 @@ const App: React.FC = () => {
     setIsSearchActive(false);
   };
 
+  const handleTimelineClick = (entry: any) => {
+    console.log('Timeline entry clicked:', entry);
+    // Можно добавить функционал для показа деталей цепочки запросов
+  };
   return (
     <Container fluid className="py-4">
       <Row>
@@ -81,7 +115,22 @@ const App: React.FC = () => {
                   </Button>
                 </div>
               )}
-              <LogViewer entries={displayedEntries} />
+              <LogViewer
+                entries={displayedEntries}
+                pagination={
+                  isSearchActive ? undefined : {
+                    currentPage,
+                    totalPages,
+                    totalElements,
+                    onPageChange: handlePageChange
+                  }
+                }
+              />
+              <TimelineVisualization
+                entries={logData.entries}
+                onEntryClick={handleTimelineClick}
+              />
+              <PluginManager logFileId={logData.logFileId} />
             </>
           )}
         </Col>
