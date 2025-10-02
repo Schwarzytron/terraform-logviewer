@@ -87,9 +87,9 @@ class LogStorageServiceTest {
     private LogEntry createTestLogEntry(String id) {
         LogEntry entry = new LogEntry();
         entry.setId(id);
-        entry.setRawMessage("Test message " + id);
+        entry.setMessage("Test message " + id);
         entry.setTimestamp(Instant.now());
-        entry.setLevel(LogLevel.INFO);
+        entry.setLevel(LogLevel.INFO.toString());
         entry.setSection("plan");
         entry.setMessage("Test message");
         entry.setLogFileId("test-file");

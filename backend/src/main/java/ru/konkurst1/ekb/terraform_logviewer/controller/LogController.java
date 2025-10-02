@@ -16,7 +16,6 @@ import ru.konkurst1.ekb.terraform_logviewer.dto.LogUploadResponse;
 import ru.konkurst1.ekb.terraform_logviewer.dto.SearchFilters;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogEntry;
 import ru.konkurst1.ekb.terraform_logviewer.model.LogLevel;
-import ru.konkurst1.ekb.terraform_logviewer.model.LogParseResult;
 import ru.konkurst1.ekb.terraform_logviewer.repository.LogEntryRepository;
 import ru.konkurst1.ekb.terraform_logviewer.service.LogParserService;
 import ru.konkurst1.ekb.terraform_logviewer.service.LogSearchService;

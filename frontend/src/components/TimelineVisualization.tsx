@@ -6,7 +6,8 @@ import { LogEntry } from '../types/LogEntry';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface TimelineEntry {
-  tfReqId: string;
+  resourceKey: string;
+  section: 'plan' | 'apply' | 'other';
   resourceType?: string;
   startTime: Date;
   endTime: Date;
@@ -19,8 +20,9 @@ interface TimelineEntry {
 interface TimelineVisualizationProps {
   entries: LogEntry[];
   onEntryClick: (entry: TimelineEntry) => void;
-  onRequestChainSelect: (tfReqId: string) => void;
+  onRequestChainSelect: (resourceKey: string) => void;
 }
+
 
 const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   entries,
@@ -60,19 +62,44 @@ const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     };
   }, [theme]);
 
-  // Расширенная обработка данных
-  const { timelineEntries, resourceTypes, statistics } = React.useMemo(() => {
-    const grouped = entries.reduce((acc, entry) => {
-      if (entry.tfReqId) {
-        if (!acc[entry.tfReqId]) {
-          acc[entry.tfReqId] = [];
+  const { timelineEntries, resourceTypes, statistics, planApplyPeriods } = React.useMemo(() => {
+    const periods: { type: 'plan' | 'apply'; startTime: Date; endTime: Date }[] = [];
+    let currentPeriod: { type: 'plan' | 'apply'; startTime: Date } | null = null;
+
+    entries.forEach(entry => {
+      if (entry.section === 'plan' && currentPeriod?.type !== 'plan') {
+        if (currentPeriod) {
+          periods.push({ ...currentPeriod, endTime: new Date(entry.timestamp) });
         }
-        acc[entry.tfReqId].push(entry);
+        currentPeriod = { type: 'plan', startTime: new Date(entry.timestamp) };
+      } else if (entry.section === 'apply' && currentPeriod?.type !== 'apply') {
+        if (currentPeriod) {
+          periods.push({ ...currentPeriod, endTime: new Date(entry.timestamp) });
+        }
+        currentPeriod = { type: 'apply', startTime: new Date(entry.timestamp) };
       }
+    });
+
+    // Завершаем последний период
+    if (currentPeriod && entries.length > 0) {
+      periods.push({ ...currentPeriod, endTime: new Date(entries[entries.length - 1].timestamp) });
+    }
+
+    const grouped = entries.reduce((acc, entry) => {
+      const resourceKey = entry.tfResourceType || 'unknown';
+      const section = entry.section || 'other';
+      // Ключ: ресурс + секция
+      const groupKey = `${resourceKey}|${section}`;
+      if (!acc[groupKey]) {
+        acc[groupKey] = [];
+      }
+      acc[groupKey].push(entry);
       return acc;
     }, {} as Record<string, LogEntry[]>);
 
-    const timelineData = Object.entries(grouped).map(([tfReqId, groupEntries]) => {
+
+    const timelineData = Object.entries(grouped).map(([groupKey, groupEntries]) => {
+      const [resourceKey, section] = groupKey.split('|');
       const timestamps = groupEntries
         .filter(e => e.timestamp)
         .map(e => new Date(e.timestamp).getTime());
@@ -96,8 +123,9 @@ const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       else if (hasWarnings) status = 'warning';
 
       return {
-        tfReqId,
-        resourceType: groupEntries[0]?.tfResourceType,
+        resourceKey,
+        section: section as 'plan' | 'apply' | 'other',
+        resourceType: resourceKey !== 'unknown' ? resourceKey : undefined,
         startTime,
         endTime,
         durationMs,
@@ -120,7 +148,8 @@ const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     return {
       timelineEntries: timelineData,
       resourceTypes: resources,
-      statistics: stats
+      statistics: stats,
+      planApplyPeriods: periods
     };
   }, [entries]);
 
@@ -150,14 +179,14 @@ const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
-    const margin = { top: 60, right: 200, bottom: 80, left: 300 };
+    const margin = { top: 40, right: 200, bottom: 60, left: 300 };
     const width = 1200 - margin.left - margin.right;
-    const height = Math.max(500, filteredEntries.length * 35);
+    const height = Math.max(400, filteredEntries.length * 25);
 
     svg.attr('width', width + margin.left + margin.right)
-       .attr('height', height + margin.top + margin.bottom)
-       .style('background-color', colors.background)
-       .style('border-radius', '4px');
+      .attr('height', height + margin.top + margin.bottom)
+      .style('background-color', colors.background)
+      .style('border-radius', '4px');
 
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
@@ -168,13 +197,9 @@ const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       .nice();
 
     const yScale = d3.scaleBand()
-      .domain(filteredEntries.map(d => d.tfReqId))
+      .domain(Array.from(new Set(filteredEntries.map(d => d.resourceKey))))
       .range([0, height])
-      .padding(0.2);
-
-    const colorScale = d3.scaleOrdinal<string>()
-      .domain(['success', 'warning', 'error'])
-      .range([colors.status.success, colors.status.warning, colors.status.error]);
+      .padding(0.05);
 
     const durationScale = d3.scaleLinear()
       .domain([0, d3.max(filteredEntries, d => d.durationMs) || 1000])
@@ -192,66 +217,99 @@ const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       .style('opacity', 0.3)
       .style('stroke', colors.grid);
 
+    // Вертикальные маркеры периодов PLAN/APPLY (ДО отрисовки столбцов)
+    planApplyPeriods.forEach(period => {
+      g.append('line')
+        .attr('class', 'period-marker')
+        .attr('x1', xScale(period.startTime))
+        .attr('x2', xScale(period.startTime))
+        .attr('y1', 0)
+        .attr('y2', height)
+        .style('stroke', period.type === 'plan' ? '#3b82f6' : '#10b981')
+        .style('stroke-width', 2)
+        .style('stroke-dasharray', '5,5')
+        .style('opacity', 0.7);
+
+      // Подписи периодов
+      g.append('text')
+        .attr('x', xScale(period.startTime))
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .style('fill', period.type === 'plan' ? '#3b82f6' : '#10b981')
+        .style('font-size', '10px')
+        .style('font-weight', 'bold')
+        .text(period.type.toUpperCase());
+    });
     // Bars
-    const bars = g.selectAll('.timeline-bar')
-      .data(filteredEntries)
+    // Для каждого ресурса создаем подгруппы по секциям
+    const resourceGroups = g.selectAll('.resource-group')
+      .data(Array.from(new Set(filteredEntries.map(d => d.resourceKey))))
       .enter()
       .append('g')
-      .attr('class', 'timeline-bar-group');
+      .attr('class', 'resource-group')
+      .attr('transform', d => `translate(0, ${yScale(d)!})`);
 
-    bars.append('rect')
-      .attr('class', 'timeline-bar')
-      .attr('x', d => xScale(d.startTime))
-      .attr('y', d => yScale(d.tfReqId)!)
-      .attr('width', d => Math.max(2, xScale(d.endTime) - xScale(d.startTime)))
-      .attr('height', yScale.bandwidth())
-      .attr('fill', d => colorScale(d.status))
-      .attr('opacity', d => durationScale(d.durationMs))
-      .attr('rx', 2)
-      .style('cursor', 'pointer')
-      .style('transition', 'all 0.2s ease')
-      .on('click', (event, d) => onEntryClick(d))
-      .on('mouseover', (event, d) => {
-        setHoveredEntry(d);
-        d3.select(event.currentTarget)
-          .attr('stroke', colors.hover)
-          .attr('stroke-width', 2)
-          .style('filter', 'brightness(1.2)');
-      })
-      .on('mouseout', (event) => {
-        setHoveredEntry(null);
-        d3.select(event.currentTarget)
-          .attr('stroke', null)
-          .style('filter', 'brightness(1)');
+    resourceGroups.each(function (resourceKey) {
+      const resourceEntries = filteredEntries.filter(d => d.resourceKey === resourceKey);
+      const sectionScale = d3.scaleBand()
+        .domain(['plan', 'apply', 'other'])
+        .range([0, yScale.bandwidth()])
+        .padding(0.02);
+
+      const resourceGroup = d3.select(this);
+
+      resourceEntries.forEach(entry => {
+        const barGroup = resourceGroup.append('g')
+          .attr('class', 'timeline-bar-group')
+          .attr('transform', `translate(0, ${sectionScale(entry.section)!})`);
+
+        // Цвета для секций
+        const sectionColors = {
+          plan: '#3b82f6',    // синий для PLAN
+          apply: '#10b981',   // зеленый для APPLY  
+          other: '#6b7280'    // серый для OTHER
+        };
+
+        barGroup.append('rect')
+          .attr('class', 'timeline-bar')
+          .attr('x', xScale(entry.startTime))
+          .attr('width', Math.max(2, xScale(entry.endTime) - xScale(entry.startTime)))
+          .attr('height', sectionScale.bandwidth())
+          .attr('fill', sectionColors[entry.section]) // используем цвет секции вместо статуса
+          .attr('opacity', durationScale(entry.durationMs))
+          .attr('rx', 2)
+          .style('cursor', 'pointer')
+          .style('transition', 'all 0.2s ease')
+          .on('click', (event) => onEntryClick(entry))
+          .on('mouseover', (event) => {
+            setHoveredEntry(entry);
+            d3.select(event.currentTarget)
+              .attr('stroke', colors.hover)
+              .attr('stroke-width', 2)
+              .style('filter', 'brightness(1.2)');
+          })
+          .on('mouseout', (event) => {
+            setHoveredEntry(null);
+            d3.select(event.currentTarget)
+              .attr('stroke', null)
+              .style('filter', 'brightness(1)');
+          });
+
+        // Подписи длительности (только для достаточно широких столбцов)
+        if ((xScale(entry.endTime) - xScale(entry.startTime)) > 40) {
+          barGroup.append('text')
+            .attr('x', xScale(entry.startTime) + (xScale(entry.endTime) - xScale(entry.startTime)) / 2)
+            .attr('y', sectionScale.bandwidth() / 2)
+            .attr('text-anchor', 'middle')
+            .attr('dy', '0.35em')
+            .style('font-size', '9px')
+            .style('font-weight', 'bold')
+            .style('pointer-events', 'none')
+            .style('fill', '#ffffff')
+            .text(`${entry.durationMs}ms`);
+        }
       });
-
-    // Duration labels
-    bars.append('text')
-      .attr('x', d => xScale(d.startTime) + (xScale(d.endTime) - xScale(d.startTime)) / 2)
-      .attr('y', d => yScale(d.tfReqId)! + yScale.bandwidth() / 2)
-      .attr('text-anchor', 'middle')
-      .attr('dy', '0.35em')
-      .style('font-size', '10px')
-      .style('font-weight', 'bold')
-      .style('pointer-events', 'none')
-      .style('fill', d => {
-        // Для тёмных цветов используем белый текст, для светлых - цвет темы
-        const darkColors = ['#ef4444', '#dc2626', '#b91c1c']; // красные оттенки
-        const barColor = colorScale(d.status);
-        return darkColors.includes(barColor) ? '#ffffff' : colors.text;
-      })
-      .text(d => `${d.durationMs}ms`);
-
-    // Resource type labels
-    bars.append('text')
-      .attr('x', d => xScale(d.startTime) - 5)
-      .attr('y', d => yScale(d.tfReqId)! + yScale.bandwidth() / 2)
-      .attr('text-anchor', 'end')
-      .attr('dy', '0.35em')
-      .style('font-size', '10px')
-      .style('pointer-events', 'none')
-      .style('fill', colors.textMuted)
-      .text(d => d.resourceType || 'Unknown');
+    });
 
     // Axes
     const xAxis = g.append('g')
@@ -282,7 +340,7 @@ const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       .style('fill', colors.text)
       .style('font-size', '9px')
       .style('cursor', 'pointer')
-      .on('click', (event, tfReqId) => onRequestChainSelect(tfReqId));
+      .on('click', (event, resourceKey) => onRequestChainSelect(resourceKey));
 
     yAxis.selectAll('path, line')
       .style('stroke', colors.axis);
@@ -292,27 +350,33 @@ const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       .attr('transform', `translate(${width + 20}, 0)`);
 
     legend.selectAll('.legend-item')
-      .data(['success', 'warning', 'error'])
+      .data(['plan', 'apply', 'other'])
       .enter()
       .append('g')
       .attr('class', 'legend-item')
       .attr('transform', (d, i) => `translate(0, ${i * 25})`)
-      .each(function(d) {
+      .each(function (d) {
         const g = d3.select(this);
+        const sectionColors = {
+          plan: '#3b82f6',
+          apply: '#10b981',
+          other: '#6b7280'
+        };
+
         g.append('rect')
           .attr('width', 15)
           .attr('height', 15)
-          .attr('fill', colorScale(d))
+          .attr('fill', sectionColors[d as keyof typeof sectionColors])
           .attr('rx', 2);
         g.append('text')
           .attr('x', 20)
           .attr('y', 12)
           .style('font-size', '12px')
           .style('fill', colors.text)
-          .text(d.charAt(0).toUpperCase() + d.slice(1));
+          .text(d.toUpperCase());
       });
 
-  }, [filteredEntries, onEntryClick, onRequestChainSelect, colors]);
+  }, [filteredEntries, onEntryClick, onRequestChainSelect, colors, planApplyPeriods]);
 
   if (timelineEntries.length === 0) {
     return (
@@ -437,7 +501,7 @@ const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
               <Row>
                 <Col>
                   <strong style={{ color: colors.text }}>
-                    Request: {hoveredEntry.tfReqId}
+                    Resource: {hoveredEntry.resourceKey}
                   </strong>
                   {hoveredEntry.resourceType && (
                     <span style={{ color: colors.textMuted }} className="ms-2">

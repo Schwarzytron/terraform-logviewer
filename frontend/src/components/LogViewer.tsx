@@ -13,29 +13,7 @@ interface LogViewerProps {
   entries: LogEntry[];
   pagination?: PaginationProps;
 }
-const handlePageChange = async (page: number) => {
-  if (!logData?.logFileId) return;
 
-  try {
-    const response = await fetch(
-      `http://localhost:8080/api/logs/entries?logFileId=${logData.logFileId}&page=${page}&size=50`
-    );
-    if (response.ok) {
-      const data = await response.json();
-      setCurrentPage(data.currentPage);
-      setTotalPages(data.totalPages);
-      setTotalElements(data.totalElements);
-
-      // Ключевое исправление - обновляем entries
-      setLogData(prev => prev ? {
-        ...prev,
-        entries: data.content
-      } : null);
-    }
-  } catch (error) {
-    console.error('Failed to load page:', error);
-  }
-};
 const PaginationComponent: React.FC<PaginationProps> = ({
   currentPage,
   totalPages,

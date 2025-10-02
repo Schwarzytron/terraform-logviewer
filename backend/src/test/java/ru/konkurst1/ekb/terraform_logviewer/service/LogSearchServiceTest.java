@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -168,9 +167,9 @@ class LogSearchServiceTest {
     private LogEntry createTestLogEntry(String id) {
         LogEntry entry = new LogEntry();
         entry.setId(id);
-        entry.setRawMessage("Test message " + id);
+        entry.setMessage("Test message " + id);
         entry.setTimestamp(Instant.now());
-        entry.setLevel(LogLevel.INFO);
+        entry.setLevel(LogLevel.INFO.toString());
         entry.setSection("plan");
         entry.setMessage("Test message");
         entry.setLogFileId("test-file");

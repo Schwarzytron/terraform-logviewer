@@ -80,16 +80,27 @@ const AppContent: React.FC = () => {
 
   const handleTimelineClick = (entry: any) => {
     console.log('Timeline entry clicked:', entry);
-    // Можно добавить функционал для показа деталей цепочки запросов
+
+    // Фильтруем логи по этому ресурсу
+    if (entry.resourceKey && logData?.entries) {
+      const filteredEntries = logData.entries.filter(logEntry =>
+        logEntry.tfResourceType === entry.resourceKey
+      );
+      setSearchResults(filteredEntries);
+      setIsSearchActive(true);
+    }
   };
-  const handleRequestChainSelect = (tfReqId: string) => {
-    // Фильтруем логи по выбранной цепочке
-    const chainEntries = logData?.entries.filter(entry => entry.tfReqId === tfReqId) || [];
-    setSearchResults(chainEntries);
+  const handleRequestChainSelect = (resourceKey: string) => {
+    if (!logData?.entries) return;
+    const resourceEntries = logData.entries.filter(entry =>
+      entry.tfResourceType === resourceKey
+    );
+
+    setSearchResults(resourceEntries);
     setIsSearchActive(true);
-    // Можно добавить автоматическую прокрутку к этой цепочке
-    console.log('Selected request chain:', tfReqId);
+    console.log('Selected resource:', resourceKey);
   };
+
 
   return (
     <>

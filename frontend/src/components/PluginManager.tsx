@@ -91,21 +91,21 @@ const PluginManager: React.FC<PluginManagerProps> = ({ logFileId }) => {
               <Form.Control
                 placeholder="Plugin Name"
                 value={newPlugin.name}
-                onChange={(e) => setNewPlugin({...newPlugin, name: e.target.value})}
+                onChange={(e) => setNewPlugin({ ...newPlugin, name: e.target.value })}
               />
             </div>
             <div className="col-md-3">
               <Form.Control
                 placeholder="Host"
                 value={newPlugin.host}
-                onChange={(e) => setNewPlugin({...newPlugin, host: e.target.value})}
+                onChange={(e) => setNewPlugin({ ...newPlugin, host: e.target.value })}
               />
             </div>
             <div className="col-md-2">
               <Form.Control
                 placeholder="Port"
                 value={newPlugin.port}
-                onChange={(e) => setNewPlugin({...newPlugin, port: e.target.value})}
+                onChange={(e) => setNewPlugin({ ...newPlugin, port: e.target.value })}
               />
             </div>
             <div className="col-md-2">

@@ -10,6 +10,17 @@ val grpcVersion = "1.59.0"
 val protobufVersion = "3.25.1"
 val protocVersion = protobufVersion
 
+val os = System.getProperty("os.name").lowercase()
+val arch = System.getProperty("os.arch").lowercase()
+
+val platformClassifier = when {
+    os.contains("win") -> "windows-x86_64"
+    os.contains("mac") && arch.contains("aarch64") -> "osx-aarch_64"
+    os.contains("mac") -> "osx-x86_64"
+    os.contains("nix") || os.contains("nux") || os.contains("aix") -> "linux-x86_64"
+    else -> "linux-x86_64"
+}
+
 group = "ru.konkurst1.ekb"
 version = "0.0.1-SNAPSHOT"
 description = "terraform-logviewer"
@@ -59,7 +70,7 @@ protobuf {
 	}
 	plugins {
 		create("grpc")  {
-			artifact = "io.grpc:protoc-gen-grpc-java:$grpcVersion:linux-x86_64"
+			artifact = "io.grpc:protoc-gen-grpc-java:$grpcVersion:$platformClassifier@exe"
 		}
 	}
 	generateProtoTasks {
